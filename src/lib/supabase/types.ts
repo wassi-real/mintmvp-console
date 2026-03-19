@@ -239,7 +239,36 @@ export type Database = {
 					resolved_at?: string | null;
 				};
 			};
-			activity_log: {
+			reports: {
+			Row: {
+				id: string;
+				project_id: string;
+				title: string;
+				content: string;
+				created_by: string;
+				created_at: string;
+				updated_at: string;
+			};
+			Insert: {
+				id?: string;
+				project_id: string;
+				title: string;
+				content?: string;
+				created_by?: string;
+				created_at?: string;
+				updated_at?: string;
+			};
+			Update: {
+				id?: string;
+				project_id?: string;
+				title?: string;
+				content?: string;
+				created_by?: string;
+				created_at?: string;
+				updated_at?: string;
+			};
+		};
+		activity_log: {
 				Row: {
 					id: string;
 					project_id: string;

@@ -33,6 +33,10 @@
 		return tasks.filter((t) => t.status === status);
 	}
 
+	function shouldScrollColumn(status: string) {
+		return tasksByStatus(status).length > 5;
+	}
+
 	// ── Drag & Drop ──
 	let draggingId = $state<string | null>(null);
 	let dragOverColumn = $state<string | null>(null);
@@ -257,12 +261,12 @@
 	{#if tasks.length === 0 && !createOpen}
 		<EmptyState icon={ListTodo} title="No tasks yet" description="Create your first task." />
 	{:else}
-		<div class="mt-6 grid grid-cols-5 gap-4">
+		<div class="mt-6 flex items-start gap-4 overflow-x-auto pb-2 snap-x snap-mandatory">
 			{#each columns as col}
 				<div
 					role="region"
 					aria-label="{col.label} column"
-					class="flex flex-col rounded-xl border-2 p-4 transition-colors {dragOverColumn === col.key ? 'border-primary/60 bg-primary/5' : 'border-border bg-card/50'}"
+					class="flex w-[18rem] min-w-[18rem] snap-start self-start flex-col rounded-xl border-2 p-4 transition-colors xl:w-[19rem] xl:min-w-[19rem] {dragOverColumn === col.key ? 'border-primary/60 bg-primary/5' : 'border-border bg-card/50'}"
 					ondragover={(e) => onDragOver(e, col.key)}
 					ondragleave={(e) => onDragLeave(e, col.key)}
 					ondrop={(e) => onDrop(e, col.key)}
@@ -271,7 +275,7 @@
 						<h3 class="text-base font-semibold text-foreground">{col.label}</h3>
 						<span class="rounded-full bg-secondary px-2.5 py-0.5 text-sm font-semibold text-muted-foreground">{tasksByStatus(col.key).length}</span>
 					</div>
-					<div class="flex flex-col gap-3">
+					<div class="flex flex-col gap-3 {shouldScrollColumn(col.key) ? 'max-h-[34rem] overflow-y-auto pr-1' : ''}">
 						{#each tasksByStatus(col.key) as task (task.id)}
 							<div
 								role="listitem"

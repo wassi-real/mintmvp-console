@@ -21,7 +21,7 @@
 	}
 </script>
 
-<nav class="relative z-40 flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
+<nav class="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-between border-b border-border bg-card px-4 sm:px-6">
 	<!-- Brand -->
 	<div class="flex items-center gap-3 sm:gap-8">
 		<a href="/dashboard" class="flex items-center gap-2.5 shrink-0" onclick={closeMobile}>
@@ -80,7 +80,7 @@
 
 <!-- Mobile dropdown menu -->
 {#if mobileMenuOpen}
-	<div class="absolute left-0 right-0 z-30 border-b border-border bg-card shadow-xl sm:hidden">
+	<div class="fixed top-16 left-0 right-0 z-40 border-b border-border bg-card shadow-xl sm:hidden">
 		<div class="flex flex-col p-4 gap-1">
 			<a
 				href="/dashboard"

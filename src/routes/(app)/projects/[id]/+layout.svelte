@@ -18,16 +18,16 @@
 	});
 </script>
 
-<div class="flex flex-1 overflow-hidden">
+<div class="flex h-full flex-1 overflow-hidden">
 	<ProjectSidebar
 		projectId={data.project.id}
 		mobileOpen={sidebarOpen}
 		onClose={() => (sidebarOpen = false)}
 	/>
 
-	<div class="flex flex-1 flex-col overflow-auto">
+	<div class="flex min-w-0 flex-1 flex-col overflow-hidden lg:pl-60">
 		<!-- Mobile top bar with sidebar toggle -->
-		<div class="flex items-center gap-3 border-b border-border bg-card px-4 py-3 lg:hidden">
+		<div class="sticky top-0 z-20 flex items-center gap-3 border-b border-border bg-card px-4 py-3 lg:hidden">
 			<button
 				onclick={() => (sidebarOpen = true)}
 				class="flex items-center gap-2 rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -41,7 +41,7 @@
 			</div>
 		</div>
 
-		<div class="flex-1 p-4 sm:p-6 lg:p-8">
+		<div class="relative flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 			{@render children()}
 		</div>
 	</div>

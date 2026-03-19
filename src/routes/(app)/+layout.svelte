@@ -4,9 +4,9 @@
 	let { children } = $props();
 </script>
 
-<div class="relative flex min-h-screen flex-col bg-background">
+<div class="relative h-screen overflow-hidden bg-background">
 	<TopNav />
-	<main class="flex flex-1 flex-col">
+	<main class="mt-16 flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
 		{@render children()}
 	</main>
 </div>
