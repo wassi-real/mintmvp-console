@@ -69,68 +69,110 @@
 		{
 			id: 'specs',
 			label: 'Specs',
+			paramName: 'specId',
 			get: { desc: 'List all specs', response: '{ "data": [ { id, project_id, title, summary, goal, status, ... } ] }' },
 			post: {
 				desc: 'Create a spec',
 				body: '{ "title": "Feature X", "summary": "...", "goal": "...", "status": "draft" }',
 				required: ['title'],
 				optional: ['summary', 'goal', 'acceptance_criteria', 'edge_cases', 'regression_risks', 'status']
-			}
+			},
+			patch: {
+				desc: 'Update a spec (partial)',
+				body: '{ "summary": "...", "acceptance_criteria": "...", "edge_cases": "...", "regression_risks": "..." }',
+				optional: ['title', 'summary', 'goal', 'acceptance_criteria', 'edge_cases', 'regression_risks', 'status']
+			},
+			del: { desc: 'Delete a spec' }
 		},
 		{
 			id: 'tasks',
 			label: 'Tasks',
+			paramName: 'taskId',
 			get: { desc: 'List all tasks', response: '{ "data": [ { id, title, status, priority, assignee, ... } ] }' },
 			post: {
 				desc: 'Create a task',
 				body: '{ "title": "Fix bug", "priority": "high", "status": "backlog" }',
 				required: ['title'],
-				optional: ['description', 'status', 'priority', 'assignee']
-			}
+				optional: ['description', 'status', 'priority', 'assignee', 'spec_id']
+			},
+			patch: {
+				desc: 'Update a task (partial)',
+				body: '{ "status": "in_progress", "priority": "high" }',
+				optional: ['title', 'description', 'status', 'priority', 'assignee', 'spec_id']
+			},
+			del: { desc: 'Delete a task' }
 		},
 		{
 			id: 'tests',
 			label: 'Tests',
+			paramName: 'testId',
 			get: { desc: 'List all tests', response: '{ "data": [ { id, name, type, status, last_run, notes } ] }' },
 			post: {
 				desc: 'Create a test',
 				body: '{ "name": "Login flow", "type": "integration", "status": "pending" }',
 				required: ['name'],
 				optional: ['type', 'status', 'notes']
-			}
+			},
+			patch: {
+				desc: 'Update a test (partial)',
+				body: '{ "status": "pass", "notes": "All assertions passed" }',
+				optional: ['name', 'type', 'status', 'last_run', 'notes']
+			},
+			del: { desc: 'Delete a test' }
 		},
 		{
 			id: 'incidents',
 			label: 'Incidents',
+			paramName: 'incidentId',
 			get: { desc: 'List all incidents', response: '{ "data": [ { id, title, severity, status, description, ... } ] }' },
 			post: {
 				desc: 'Report an incident',
 				body: '{ "title": "API down", "severity": "critical" }',
 				required: ['title'],
 				optional: ['severity', 'status', 'description']
-			}
+			},
+			patch: {
+				desc: 'Update an incident (partial)',
+				body: '{ "status": "resolved", "resolved_at": "2026-03-16T12:00:00Z" }',
+				optional: ['title', 'severity', 'status', 'description', 'resolved_at']
+			},
+			del: { desc: 'Delete an incident' }
 		},
 		{
 			id: 'reports',
 			label: 'Reports',
+			paramName: 'reportId',
 			get: { desc: 'List all reports', response: '{ "data": [ { id, title, content, created_by, ... } ] }' },
 			post: {
 				desc: 'Create a report',
 				body: '{ "title": "Sprint 1 Summary", "content": "# Report\\n..." }',
 				required: ['title'],
 				optional: ['content']
-			}
+			},
+			patch: {
+				desc: 'Update a report (partial)',
+				body: '{ "title": "Sprint 1 Summary (final)", "content": "# Updated\\n..." }',
+				optional: ['title', 'content']
+			},
+			del: { desc: 'Delete a report' }
 		},
 		{
 			id: 'deployments',
 			label: 'Deployments',
+			paramName: 'deploymentId',
 			get: { desc: 'List all deployments', response: '{ "data": [ { id, version, environment, status, notes, ... } ] }' },
 			post: {
 				desc: 'Log a deployment',
 				body: '{ "version": "v1.2.0", "environment": "production", "status": "success" }',
 				required: ['version'],
 				optional: ['environment', 'status', 'notes']
-			}
+			},
+			patch: {
+				desc: 'Update a deployment (partial)',
+				body: '{ "status": "failed", "notes": "Rolled back due to errors" }',
+				optional: ['version', 'environment', 'status', 'notes']
+			},
+			del: { desc: 'Delete a deployment' }
 		}
 	];
 </script>
@@ -319,6 +361,12 @@
 									<div class="flex items-center gap-3">
 										<span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-bold text-green-400">GET</span>
 										<span class="rounded bg-blue-900/40 px-2 py-0.5 text-xs font-bold text-blue-400">POST</span>
+										{#if ep.patch}
+											<span class="rounded bg-amber-900/40 px-2 py-0.5 text-xs font-bold text-amber-400">PATCH</span>
+										{/if}
+										{#if ep.del}
+											<span class="rounded bg-red-900/40 px-2 py-0.5 text-xs font-bold text-red-400">DELETE</span>
+										{/if}
 										<span class="text-lg font-semibold text-foreground">/{ep.id}</span>
 									</div>
 									{#if expandedDoc === ep.id}
@@ -330,7 +378,7 @@
 
 								{#if expandedDoc === ep.id}
 									<div class="border-t border-border px-6 py-5 space-y-6">
-										<!-- GET -->
+										<!-- GET (list) -->
 										<div>
 											<div class="flex items-center gap-2">
 												<span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-bold text-green-400">GET</span>
@@ -344,6 +392,22 @@
 											<div class="mt-3 rounded-lg bg-secondary p-4">
 												<p class="mb-1 text-xs font-semibold uppercase text-muted-foreground">Response</p>
 												<pre class="text-sm font-mono text-foreground overflow-x-auto whitespace-pre-wrap">{ep.get.response}</pre>
+											</div>
+										</div>
+
+										<!-- GET (single) -->
+										<div>
+											<div class="flex items-center gap-2">
+												<span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-bold text-green-400">GET</span>
+												<span class="text-base font-semibold text-foreground">Get a single {ep.label.toLowerCase().slice(0, -1)}</span>
+											</div>
+											<p class="mt-2 text-sm text-muted-foreground">
+												Path: <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground">/{ep.id}/&#123;id&#125;</code>
+											</p>
+											<div class="mt-3 rounded-lg bg-secondary p-4">
+												<p class="mb-1 text-xs font-semibold uppercase text-muted-foreground">curl</p>
+												<pre class="text-sm font-mono text-foreground overflow-x-auto whitespace-pre-wrap">curl -H "Authorization: Bearer mint_YOUR_KEY" \
+  {baseUrl}/{ep.id}/ITEM_UUID</pre>
 											</div>
 										</div>
 
@@ -372,6 +436,56 @@
   {baseUrl}/{ep.id}</pre>
 											</div>
 										</div>
+
+										{#if ep.patch}
+											<!-- PATCH -->
+											<div>
+												<div class="flex items-center gap-2">
+													<span class="rounded bg-amber-900/40 px-2 py-0.5 text-xs font-bold text-amber-400">PATCH</span>
+													<span class="text-base font-semibold text-foreground">{ep.patch.desc}</span>
+												</div>
+												<p class="mt-2 text-sm text-muted-foreground">
+													Path: <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground">/{ep.id}/&#123;id&#125;</code>
+												</p>
+												<div class="mt-2">
+													<p class="text-sm text-muted-foreground">
+														<strong class="text-foreground">Optional (send any subset):</strong>
+														{ep.patch.optional.join(', ')}
+													</p>
+												</div>
+												<div class="mt-3 rounded-lg bg-secondary p-4">
+													<p class="mb-1 text-xs font-semibold uppercase text-muted-foreground">curl</p>
+													<pre class="text-sm font-mono text-foreground overflow-x-auto whitespace-pre-wrap">curl -X PATCH \
+  -H "Authorization: Bearer mint_YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ep.patch.body}' \
+  {baseUrl}/{ep.id}/ITEM_UUID</pre>
+												</div>
+											</div>
+										{/if}
+
+										{#if ep.del}
+											<!-- DELETE -->
+											<div>
+												<div class="flex items-center gap-2">
+													<span class="rounded bg-red-900/40 px-2 py-0.5 text-xs font-bold text-red-400">DELETE</span>
+													<span class="text-base font-semibold text-foreground">{ep.del.desc}</span>
+												</div>
+												<p class="mt-2 text-sm text-muted-foreground">
+													Path: <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground">/{ep.id}/&#123;id&#125;</code>
+												</p>
+												<div class="mt-3 rounded-lg bg-secondary p-4">
+													<p class="mb-1 text-xs font-semibold uppercase text-muted-foreground">curl</p>
+													<pre class="text-sm font-mono text-foreground overflow-x-auto whitespace-pre-wrap">curl -X DELETE \
+  -H "Authorization: Bearer mint_YOUR_KEY" \
+  {baseUrl}/{ep.id}/ITEM_UUID</pre>
+												</div>
+												<div class="mt-3 rounded-lg bg-secondary p-4">
+													<p class="mb-1 text-xs font-semibold uppercase text-muted-foreground">Response</p>
+													<pre class="text-sm font-mono text-foreground overflow-x-auto whitespace-pre-wrap">{"{ \"success\": true }"}</pre>
+												</div>
+											</div>
+										{/if}
 									</div>
 								{/if}
 							</div>
@@ -393,6 +507,7 @@
 									<tr class="border-b border-border"><td class="px-4 py-3 font-mono text-sm text-foreground">200</td><td class="px-4 py-3 text-sm text-muted-foreground">Success</td></tr>
 									<tr class="border-b border-border"><td class="px-4 py-3 font-mono text-sm text-foreground">201</td><td class="px-4 py-3 text-sm text-muted-foreground">Created</td></tr>
 									<tr class="border-b border-border"><td class="px-4 py-3 font-mono text-sm text-foreground">400</td><td class="px-4 py-3 text-sm text-muted-foreground">Bad request (missing required fields)</td></tr>
+									<tr class="border-b border-border"><td class="px-4 py-3 font-mono text-sm text-foreground">404</td><td class="px-4 py-3 text-sm text-muted-foreground">Not found (e.g. spec id does not exist in this project)</td></tr>
 									<tr class="border-b border-border"><td class="px-4 py-3 font-mono text-sm text-foreground">401</td><td class="px-4 py-3 text-sm text-muted-foreground">Unauthorized (invalid or missing API key)</td></tr>
 									<tr class="border-b border-border"><td class="px-4 py-3 font-mono text-sm text-foreground">403</td><td class="px-4 py-3 text-sm text-muted-foreground">Forbidden (key does not belong to this project)</td></tr>
 									<tr><td class="px-4 py-3 font-mono text-sm text-foreground">500</td><td class="px-4 py-3 text-sm text-muted-foreground">Internal server error</td></tr>
