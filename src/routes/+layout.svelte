@@ -1,7 +1,8 @@
 <script lang="ts">
 	import './layout.css';
+	import NavProgress from '$lib/components/NavProgress.svelte';
 
-	let { children, data } = $props();
+	let { children } = $props();
 </script>
 
 <svelte:head>
@@ -16,4 +17,5 @@
 	<title>MintMVP Console</title>
 </svelte:head>
 
+<NavProgress />
 {@render children()}

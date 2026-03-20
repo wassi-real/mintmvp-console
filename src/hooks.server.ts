@@ -10,6 +10,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	} = await supabase.auth.getSession();
 	event.locals.session = session;
 
+	// API routes handle their own auth via bearer token
+	if (event.url.pathname.startsWith('/api/v1/')) {
+		return resolve(event, {
+			filterSerializedResponseHeaders(name) {
+				return name === 'content-range' || name === 'x-supabase-api-version';
+			}
+		});
+	}
+
 	const isAuthRoute = event.url.pathname.startsWith('/login');
 	const isRootRoute = event.url.pathname === '/';
 

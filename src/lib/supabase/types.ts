@@ -268,6 +268,38 @@ export type Database = {
 				updated_at?: string;
 			};
 		};
+		api_keys: {
+			Row: {
+				id: string;
+				project_id: string;
+				name: string;
+				key_hash: string;
+				key_prefix: string;
+				created_by: string;
+				created_at: string;
+				last_used_at: string | null;
+			};
+			Insert: {
+				id?: string;
+				project_id: string;
+				name: string;
+				key_hash: string;
+				key_prefix: string;
+				created_by?: string;
+				created_at?: string;
+				last_used_at?: string | null;
+			};
+			Update: {
+				id?: string;
+				project_id?: string;
+				name?: string;
+				key_hash?: string;
+				key_prefix?: string;
+				created_by?: string;
+				created_at?: string;
+				last_used_at?: string | null;
+			};
+		};
 		activity_log: {
 				Row: {
 					id: string;

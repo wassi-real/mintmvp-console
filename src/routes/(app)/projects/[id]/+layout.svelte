@@ -14,6 +14,8 @@
 		if (path.endsWith('/deployments')) return 'Deployments';
 		if (path.endsWith('/incidents')) return 'Incidents';
 		if (path.endsWith('/activity')) return 'Activity';
+		if (path.endsWith('/api')) return 'API';
+		if (path.endsWith('/reports')) return 'Reports';
 		return 'Overview';
 	});
 </script>

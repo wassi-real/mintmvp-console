@@ -8,6 +8,7 @@
 		AlertTriangle,
 		Activity,
 		BookOpen,
+		Terminal,
 		X
 	} from 'lucide-svelte';
 	import { page } from '$app/stores';
@@ -26,7 +27,8 @@
 		{ path: '/tests', label: 'Tests', icon: FlaskConical },
 		{ path: '/deployments', label: 'Deployments', icon: Rocket },
 		{ path: '/incidents', label: 'Incidents', icon: AlertTriangle },
-		{ path: '/activity', label: 'Activity', icon: Activity }
+		{ path: '/activity', label: 'Activity', icon: Activity },
+		{ path: '/api', label: 'API', icon: Terminal }
 	];
 
 	function getHref(path: string) {
