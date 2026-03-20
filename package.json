@@ -1,0 +1,41 @@
+{
+	"name": "mintmvp-console",
+	"private": true,
+	"version": "0.0.1",
+	"type": "module",
+	"scripts": {
+		"dev": "cross-env NODE_OPTIONS=--max-http-header-size=65536 vite dev",
+		"build": "vite build",
+		"preview": "cross-env NODE_OPTIONS=--max-http-header-size=65536 vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+		"lint": "prettier --check .",
+		"format": "prettier --write ."
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-vercel": "^6.3.1",
+		"@sveltejs/kit": "^2.50.2",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
+		"@tailwindcss/forms": "^0.5.11",
+		"@tailwindcss/typography": "^0.5.19",
+		"@tailwindcss/vite": "^4.1.18",
+		"cross-env": "^10.1.0",
+		"prettier": "^3.8.1",
+		"prettier-plugin-svelte": "^3.4.1",
+		"prettier-plugin-tailwindcss": "^0.7.2",
+		"svelte": "^5.51.0",
+		"svelte-check": "^4.4.2",
+		"tailwindcss": "^4.1.18",
+		"typescript": "^5.9.3",
+		"vite": "^7.3.1"
+	},
+	"dependencies": {
+		"@supabase/ssr": "^0.9.0",
+		"@supabase/supabase-js": "^2.99.2",
+		"clsx": "^2.1.1",
+		"lucide-svelte": "^0.577.0",
+		"marked": "^17.0.4",
+		"tailwind-merge": "^3.5.0"
+	}
+}
