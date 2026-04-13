@@ -14,7 +14,9 @@ export function getGitHubAppEnv(): GitHubAppEnv {
 	if (_cached) return _cached;
 
 	const appId = env.GITHUB_APP_ID ?? '';
-	const privateKey = (env.GITHUB_APP_PRIVATE_KEY ?? '').replace(/\\n/g, '\n');
+	const privateKey = (env.GITHUB_APP_PRIVATE_KEY ?? '')
+		.replace(/\\n/g, '\n')
+		.trim();
 	const webhookSecret = env.GITHUB_WEBHOOK_SECRET ?? '';
 	const clientId = env.GITHUB_APP_CLIENT_ID ?? '';
 	const clientSecret = env.GITHUB_APP_CLIENT_SECRET ?? '';

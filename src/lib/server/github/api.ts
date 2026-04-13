@@ -8,7 +8,7 @@ const GH_API = 'https://api.github.com';
 export async function getInstallationToken(
 	installationId: number
 ): Promise<{ token: string; expires_at: string }> {
-	const jwt = await createAppJwt();
+	const jwt = createAppJwt();
 	const res = await ghFetch(`/app/installations/${installationId}/access_tokens`, {
 		method: 'POST',
 		headers: { Authorization: `Bearer ${jwt}` }

@@ -1,48 +1,45 @@
+import { createPrivateKey, createSign } from 'node:crypto';
 import { getGitHubAppEnv } from './env';
 
 /**
- * Creates a JWT for authenticating as the GitHub App.
- * Uses the Web Crypto API (available in Node 18+ / Edge runtimes).
+ * Creates a JWT for authenticating as the GitHub App (RS256).
+ * Uses Node `crypto.createPrivateKey`, which accepts both PKCS#1 (`BEGIN RSA PRIVATE KEY`)
+ * and PKCS#8 (`BEGIN PRIVATE KEY`) PEM — GitHub’s default download is PKCS#1, which Web
+ * Crypto’s `importKey('pkcs8')` cannot load (that caused "Invalid keyData").
  */
-export async function createAppJwt(): Promise<string> {
+export function createAppJwt(): string {
 	const { appId, privateKey } = getGitHubAppEnv();
+	const pem = privateKey.trim();
+	if (!pem.includes('BEGIN')) {
+		throw new Error(
+			'GITHUB_APP_PRIVATE_KEY does not look like PEM (missing BEGIN line). Check .env formatting.'
+		);
+	}
 
 	const now = Math.floor(Date.now() / 1000);
 	const header = { alg: 'RS256', typ: 'JWT' };
-	const payload = { iat: now - 60, exp: now + 600, iss: appId };
+	const payload = { iat: now - 60, exp: now + 600, iss: String(appId) };
 
-	const enc = new TextEncoder();
-	const headerB64 = base64url(enc.encode(JSON.stringify(header)));
-	const payloadB64 = base64url(enc.encode(JSON.stringify(payload)));
-	const signingInput = `${headerB64}.${payloadB64}`;
+	const encHeader = base64urlJson(header);
+	const encPayload = base64urlJson(payload);
+	const signingInput = `${encHeader}.${encPayload}`;
 
-	const key = await importPKCS8(privateKey);
-	const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', key, enc.encode(signingInput));
+	const key = createPrivateKey({ key: pem, format: 'pem' });
+	const sign = createSign('RSA-SHA256');
+	sign.update(signingInput, 'utf8');
+	const signature = sign.sign(key);
 
-	return `${signingInput}.${base64url(new Uint8Array(sig))}`;
+	return `${signingInput}.${base64urlBuffer(signature)}`;
 }
 
-async function importPKCS8(pem: string): Promise<CryptoKey> {
-	const lines = pem
-		.replace(/-----BEGIN RSA PRIVATE KEY-----/, '')
-		.replace(/-----END RSA PRIVATE KEY-----/, '')
-		.replace(/-----BEGIN PRIVATE KEY-----/, '')
-		.replace(/-----END PRIVATE KEY-----/, '')
-		.replace(/\s/g, '');
-
-	const binary = Uint8Array.from(atob(lines), (c) => c.charCodeAt(0));
-
-	return crypto.subtle.importKey(
-		'pkcs8',
-		binary,
-		{ name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-		false,
-		['sign']
-	);
+function base64urlJson(obj: object): string {
+	return base64urlBuffer(Buffer.from(JSON.stringify(obj), 'utf8'));
 }
 
-function base64url(bytes: Uint8Array): string {
-	let s = '';
-	for (const b of bytes) s += String.fromCharCode(b);
-	return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function base64urlBuffer(buf: Buffer): string {
+	return buf
+		.toString('base64')
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=+$/, '');
 }

@@ -78,6 +78,7 @@ If you have not already, run Supabase migrations so tables such as `project_inte
 
 ## Troubleshooting
 
+- **`Invalid keyData` when connecting** — Usually fixed in current code: the app signs JWTs with Node’s `createPrivateKey`, which supports GitHub’s default **`BEGIN RSA PRIVATE KEY`** PEM. If you still see errors, confirm the PEM is complete (including `BEGIN` / `END` lines), uses UTF-8, and that literal line breaks in `.env` are stored as `\n` escapes on one line (see `.env.example`).
 - **“GitHub App Not Configured” in the UI** — `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, or `GITHUB_WEBHOOK_SECRET` is missing or invalid; check `.env` and restart.
 - **401 on webhook** — signature mismatch: confirm `GITHUB_WEBHOOK_SECRET` matches GitHub exactly and the raw request body is what GitHub signed (no proxy stripping or re-encoding).
 - **Connect fails with installation error** — wrong Installation ID, app not installed on that org/user, or private key / App ID does not belong to the same app.
