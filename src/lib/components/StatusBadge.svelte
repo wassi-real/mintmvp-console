@@ -46,7 +46,26 @@
 		low: 'bg-zinc-700 text-zinc-200',
 		medium: 'bg-amber-900/60 text-amber-300',
 		high: 'bg-orange-900/60 text-orange-300',
-		critical: 'bg-red-900/60 text-red-300'
+		critical: 'bg-red-900/60 text-red-300',
+		// finance — milestone statuses
+		planned: 'bg-zinc-700 text-zinc-200',
+		ready_for_payment: 'bg-amber-900/60 text-amber-300',
+		paid: 'bg-green-900/60 text-green-300',
+		overdue: 'bg-red-900/60 text-red-300',
+		// finance — payment methods
+		wise: 'bg-emerald-900/60 text-emerald-300',
+		bank_transfer: 'bg-sky-900/60 text-sky-300',
+		paypal: 'bg-blue-900/60 text-blue-300',
+		stripe: 'bg-violet-900/60 text-violet-300',
+		cash: 'bg-zinc-600 text-zinc-200',
+		other: 'bg-zinc-600 text-zinc-200',
+		// expense categories
+		developer: 'bg-cyan-900/60 text-cyan-300',
+		hosting: 'bg-sky-900/60 text-sky-300',
+		domain: 'bg-indigo-900/60 text-indigo-300',
+		api_credits: 'bg-violet-900/60 text-violet-300',
+		design: 'bg-pink-900/60 text-pink-300',
+		marketing: 'bg-orange-900/60 text-orange-300'
 	};
 
 	const sizeClasses = {

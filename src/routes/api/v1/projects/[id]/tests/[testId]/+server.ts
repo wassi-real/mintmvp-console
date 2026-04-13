@@ -3,7 +3,7 @@ import type { RequestHandler } from './$types';
 import { authenticateApi, isErrorResponse } from '../../../../auth';
 import { normalizeTestStatus, normalizeTestType } from '$lib/server/api-enums';
 
-const UPDATE_FIELDS = ['name', 'type', 'status', 'last_run', 'notes'] as const;
+const UPDATE_FIELDS = ['name', 'type', 'status', 'last_run', 'notes', 'spec_id', 'task_id'] as const;
 
 function buildPatch(body: Record<string, unknown>) {
 	const patch: Record<string, unknown> = {};

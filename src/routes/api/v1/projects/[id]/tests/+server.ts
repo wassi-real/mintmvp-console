@@ -42,7 +42,9 @@ export const POST: RequestHandler = async (event) => {
 			type: tt.value,
 			status: st.value,
 			notes: body.notes ?? null,
-			last_run: lastRun
+			last_run: lastRun,
+			spec_id: body.spec_id ?? null,
+			task_id: body.task_id ?? null
 		})
 		.select()
 		.single();

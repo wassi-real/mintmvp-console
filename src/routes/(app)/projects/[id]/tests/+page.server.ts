@@ -4,13 +4,29 @@ import { fail } from '@sveltejs/kit';
 import { logActivity, getActorName } from '$lib/server/activity';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	const { data } = await locals.supabase
-		.from('tests')
-		.select('*')
-		.eq('project_id', params.id)
-		.order('last_run', { ascending: false, nullsFirst: false });
+	const [{ data: tests }, { data: specs }, { data: tasks }] = await Promise.all([
+		locals.supabase
+			.from('tests')
+			.select('*')
+			.eq('project_id', params.id)
+			.order('last_run', { ascending: false, nullsFirst: false }),
+		locals.supabase
+			.from('specs')
+			.select('id, title')
+			.eq('project_id', params.id)
+			.order('title'),
+		locals.supabase
+			.from('tasks')
+			.select('id, title')
+			.eq('project_id', params.id)
+			.order('title')
+	]);
 
-	return { tests: (data ?? []) as Tables<'tests'>[] };
+	return {
+		tests: (tests ?? []) as Tables<'tests'>[],
+		specs: (specs ?? []) as { id: string; title: string }[],
+		tasks: (tasks ?? []) as { id: string; title: string }[]
+	};
 };
 
 export const actions: Actions = {
@@ -20,6 +36,8 @@ export const actions: Actions = {
 		const type = (form.get('type') as string) || 'manual';
 		const status = (form.get('status') as string) || 'pending';
 		const notes = (form.get('notes') as string)?.trim() || null;
+		const spec_id = (form.get('spec_id') as string)?.trim() || null;
+		const task_id = (form.get('task_id') as string)?.trim() || null;
 
 		if (!name) return fail(400, { error: 'Test name is required' });
 
@@ -29,7 +47,9 @@ export const actions: Actions = {
 			type,
 			status,
 			last_run: status !== 'pending' ? new Date().toISOString() : null,
-			notes
+			notes,
+			spec_id: spec_id || null,
+			task_id: task_id || null
 		});
 
 		if (error) return fail(500, { error: error.message });
@@ -44,11 +64,13 @@ export const actions: Actions = {
 		const type = (form.get('type') as string) || 'manual';
 		const status = (form.get('status') as string) || 'pending';
 		const notes = (form.get('notes') as string)?.trim() || null;
+		const spec_id = (form.get('spec_id') as string)?.trim() || null;
+		const task_id = (form.get('task_id') as string)?.trim() || null;
 
 		if (!id || !name) return fail(400, { error: 'ID and name are required' });
 
 		const { error } = await (locals.supabase.from('tests') as any)
-			.update({ name, type, status, notes, last_run: status !== 'pending' ? new Date().toISOString() : null })
+			.update({ name, type, status, notes, last_run: status !== 'pending' ? new Date().toISOString() : null, spec_id: spec_id || null, task_id: task_id || null })
 			.eq('id', id);
 
 		if (error) return fail(500, { error: error.message });

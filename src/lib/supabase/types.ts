@@ -154,28 +154,246 @@ export type Database = {
 					id: string;
 					project_id: string;
 					name: string;
-					type: 'unit' | 'integration' | 'smoke' | 'manual';
+					type: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
 					status: 'pass' | 'fail' | 'pending';
 					last_run: string | null;
 					notes: string | null;
+					spec_id: string | null;
+					task_id: string | null;
 				};
 				Insert: {
 					id?: string;
 					project_id: string;
 					name: string;
-					type: 'unit' | 'integration' | 'smoke' | 'manual';
+					type: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
 					status?: 'pass' | 'fail' | 'pending';
 					last_run?: string | null;
 					notes?: string | null;
+					spec_id?: string | null;
+					task_id?: string | null;
 				};
 				Update: {
 					id?: string;
 					project_id?: string;
 					name?: string;
-					type?: 'unit' | 'integration' | 'smoke' | 'manual';
+					type?: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
 					status?: 'pass' | 'fail' | 'pending';
 					last_run?: string | null;
 					notes?: string | null;
+					spec_id?: string | null;
+					task_id?: string | null;
+				};
+			};
+			code_commits: {
+				Row: {
+					id: string;
+					project_id: string;
+					branch_name: string;
+					commit_message: string;
+					developer_name: string;
+					status: 'draft' | 'in_review' | 'merged';
+					task_id: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					branch_name: string;
+					commit_message: string;
+					developer_name?: string;
+					status?: 'draft' | 'in_review' | 'merged';
+					task_id?: string | null;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					branch_name?: string;
+					commit_message?: string;
+					developer_name?: string;
+					status?: 'draft' | 'in_review' | 'merged';
+					task_id?: string | null;
+					created_at?: string;
+				};
+			};
+			repo_branches: {
+				Row: {
+					id: string;
+					project_id: string;
+					name: string;
+					last_activity_at: string;
+					status: 'stable' | 'testing' | 'broken';
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					name: string;
+					last_activity_at?: string;
+					status?: 'stable' | 'testing' | 'broken';
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					name?: string;
+					last_activity_at?: string;
+					status?: 'stable' | 'testing' | 'broken';
+				};
+			};
+			project_environments: {
+				Row: {
+					id: string;
+					project_id: string;
+					kind: 'development' | 'staging' | 'production';
+					url: string;
+					current_version: string;
+					last_deploy_at: string | null;
+					status: 'healthy' | 'broken' | 'unknown';
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					kind: 'development' | 'staging' | 'production';
+					url?: string;
+					current_version?: string;
+					last_deploy_at?: string | null;
+					status?: 'healthy' | 'broken' | 'unknown';
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					kind?: 'development' | 'staging' | 'production';
+					url?: string;
+					current_version?: string;
+					last_deploy_at?: string | null;
+					status?: 'healthy' | 'broken' | 'unknown';
+				};
+			};
+			project_health: {
+				Row: {
+					id: string;
+					project_id: string;
+					uptime_status: 'up' | 'down' | 'degraded' | 'unknown';
+					last_check_at: string | null;
+					error_count: number;
+					warning_count: number;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					uptime_status?: 'up' | 'down' | 'degraded' | 'unknown';
+					last_check_at?: string | null;
+					error_count?: number;
+					warning_count?: number;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					uptime_status?: 'up' | 'down' | 'degraded' | 'unknown';
+					last_check_at?: string | null;
+					error_count?: number;
+					warning_count?: number;
+				};
+			};
+			milestones: {
+				Row: {
+					id: string;
+					project_id: string;
+					title: string;
+					description: string;
+					amount: number;
+					status: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
+					due_date: string | null;
+					paid_date: string | null;
+					notes: string;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					title: string;
+					description?: string;
+					amount?: number;
+					status?: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
+					due_date?: string | null;
+					paid_date?: string | null;
+					notes?: string;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					title?: string;
+					description?: string;
+					amount?: number;
+					status?: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
+					due_date?: string | null;
+					paid_date?: string | null;
+					notes?: string;
+					created_at?: string;
+				};
+			};
+			payments: {
+				Row: {
+					id: string;
+					project_id: string;
+					milestone_id: string | null;
+					amount: number;
+					payment_method: '' | 'wise' | 'bank_transfer' | 'paypal' | 'stripe' | 'cash' | 'other';
+					paid_at: string;
+					notes: string;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					milestone_id?: string | null;
+					amount: number;
+					payment_method?: '' | 'wise' | 'bank_transfer' | 'paypal' | 'stripe' | 'cash' | 'other';
+					paid_at?: string;
+					notes?: string;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					milestone_id?: string | null;
+					amount?: number;
+					payment_method?: '' | 'wise' | 'bank_transfer' | 'paypal' | 'stripe' | 'cash' | 'other';
+					paid_at?: string;
+					notes?: string;
+					created_at?: string;
+				};
+			};
+			expenses: {
+				Row: {
+					id: string;
+					project_id: string;
+					title: string;
+					amount: number;
+					category: '' | 'developer' | 'hosting' | 'domain' | 'api_credits' | 'design' | 'marketing' | 'other';
+					spent_at: string;
+					notes: string;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					title: string;
+					amount?: number;
+					category?: '' | 'developer' | 'hosting' | 'domain' | 'api_credits' | 'design' | 'marketing' | 'other';
+					spent_at?: string;
+					notes?: string;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					title?: string;
+					amount?: number;
+					category?: '' | 'developer' | 'hosting' | 'domain' | 'api_credits' | 'design' | 'marketing' | 'other';
+					spent_at?: string;
+					notes?: string;
+					created_at?: string;
 				};
 			};
 			deployments: {

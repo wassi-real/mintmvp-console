@@ -41,6 +41,15 @@
 	let deleteSubmitting = $state(false);
 
 	function openDelete(t: any) { deleteItem = t; deleteOpen = true; }
+
+	function specName(specId: string | null) {
+		if (!specId) return '';
+		return data.specs.find((s: any) => s.id === specId)?.title ?? specId.slice(0, 8);
+	}
+	function taskNameOf(taskId: string | null) {
+		if (!taskId) return '';
+		return data.tasks.find((t: any) => t.id === taskId)?.title ?? taskId.slice(0, 8);
+	}
 </script>
 
 <div>
@@ -71,13 +80,27 @@
 					<label for="c-type" class="mb-1 block text-base font-medium text-foreground">Type</label>
 					<select id="c-type" name="type" class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
 						<option value="unit">Unit</option><option value="integration">Integration</option>
-						<option value="smoke">Smoke</option><option value="manual" selected>Manual</option>
+						<option value="e2e">E2E</option><option value="smoke">Smoke</option><option value="manual" selected>Manual</option>
 					</select>
 				</div>
 				<div>
 					<label for="c-status" class="mb-1 block text-base font-medium text-foreground">Status</label>
 					<select id="c-status" name="status" class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
 						<option value="pending" selected>Pending</option><option value="pass">Pass</option><option value="fail">Fail</option>
+					</select>
+				</div>
+				<div>
+					<label for="c-spec" class="mb-1 block text-base font-medium text-foreground">Linked Spec</label>
+					<select id="c-spec" name="spec_id" class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
+						<option value="">None</option>
+						{#each data.specs as s}<option value={s.id}>{s.title}</option>{/each}
+					</select>
+				</div>
+				<div>
+					<label for="c-task" class="mb-1 block text-base font-medium text-foreground">Linked Task</label>
+					<select id="c-task" name="task_id" class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
+						<option value="">None</option>
+						{#each data.tasks as t}<option value={t.id}>{t.title}</option>{/each}
 					</select>
 				</div>
 				<div class="sm:col-span-2">
@@ -114,13 +137,27 @@
 						<label for="e-type" class="mb-1 block text-base font-medium text-foreground">Type</label>
 						<select id="e-type" name="type" bind:value={editItem.type} class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
 							<option value="unit">Unit</option><option value="integration">Integration</option>
-							<option value="smoke">Smoke</option><option value="manual">Manual</option>
+							<option value="e2e">E2E</option><option value="smoke">Smoke</option><option value="manual">Manual</option>
 						</select>
 					</div>
 					<div>
 						<label for="e-status" class="mb-1 block text-base font-medium text-foreground">Status</label>
 						<select id="e-status" name="status" bind:value={editItem.status} class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
 							<option value="pending">Pending</option><option value="pass">Pass</option><option value="fail">Fail</option>
+						</select>
+					</div>
+					<div>
+						<label for="e-spec" class="mb-1 block text-base font-medium text-foreground">Linked Spec</label>
+						<select id="e-spec" name="spec_id" bind:value={editItem.spec_id} class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
+							<option value="">None</option>
+							{#each data.specs as s}<option value={s.id}>{s.title}</option>{/each}
+						</select>
+					</div>
+					<div>
+						<label for="e-task" class="mb-1 block text-base font-medium text-foreground">Linked Task</label>
+						<select id="e-task" name="task_id" bind:value={editItem.task_id} class="w-full rounded-lg border border-input bg-background px-4 py-3 text-lg text-foreground">
+							<option value="">None</option>
+							{#each data.tasks as t}<option value={t.id}>{t.title}</option>{/each}
 						</select>
 					</div>
 					<div class="sm:col-span-2">
@@ -163,27 +200,57 @@
 	{#if data.tests.length === 0}
 		<EmptyState icon={FlaskConical} title="No tests yet" description="Add your first test." />
 	{:else}
-		<div class="mt-6 overflow-hidden rounded-xl border border-border">
+		<!-- Mobile card view -->
+		<div class="mt-6 space-y-3 sm:hidden">
+			{#each data.tests as test}
+				<div class="rounded-xl border border-border bg-card p-4">
+					<div class="flex items-start justify-between gap-2">
+						<p class="text-base font-semibold text-foreground">{test.name}</p>
+						<div class="flex shrink-0 items-center gap-1">
+							<button onclick={() => openEdit(test)} class="rounded p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Edit"><Pencil size={14} /></button>
+							<button onclick={() => openDelete(test)} class="rounded p-1.5 text-muted-foreground hover:bg-red-900/40 hover:text-red-300" aria-label="Delete"><Trash2 size={14} /></button>
+						</div>
+					</div>
+					<div class="mt-2 flex flex-wrap items-center gap-2">
+						<StatusBadge status={test.type} size="sm" />
+						<StatusBadge status={test.status} size="sm" />
+						<span class="text-xs text-muted-foreground">{timeAgo(test.last_run)}</span>
+					</div>
+					{#if specName(test.spec_id) || taskNameOf(test.task_id)}
+						<div class="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+							{#if specName(test.spec_id)}<span>Spec: {specName(test.spec_id)}</span>{/if}
+							{#if taskNameOf(test.task_id)}<span>Task: {taskNameOf(test.task_id)}</span>{/if}
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
+		<!-- Desktop table view -->
+		<div class="mt-6 hidden overflow-x-auto rounded-xl border border-border sm:block">
 			<table class="w-full text-left">
 				<thead class="border-b border-border bg-secondary/50">
 					<tr>
-						<th class="px-6 py-4 text-base font-semibold text-foreground">Test Name</th>
-						<th class="px-6 py-4 text-base font-semibold text-foreground">Type</th>
-						<th class="px-6 py-4 text-base font-semibold text-foreground">Status</th>
-						<th class="px-6 py-4 text-base font-semibold text-foreground">Last Run</th>
-						<th class="px-6 py-4 text-base font-semibold text-foreground">Notes</th>
-						<th class="px-6 py-4 text-base font-semibold text-foreground"></th>
+						<th class="px-5 py-3 text-sm font-semibold text-foreground">Test Name</th>
+						<th class="px-5 py-3 text-sm font-semibold text-foreground">Type</th>
+						<th class="px-5 py-3 text-sm font-semibold text-foreground">Status</th>
+						<th class="hidden px-5 py-3 text-sm font-semibold text-foreground md:table-cell">Last Run</th>
+						<th class="hidden px-5 py-3 text-sm font-semibold text-foreground lg:table-cell">Spec</th>
+						<th class="hidden px-5 py-3 text-sm font-semibold text-foreground lg:table-cell">Task</th>
+						<th class="hidden px-5 py-3 text-sm font-semibold text-foreground xl:table-cell">Notes</th>
+						<th class="px-5 py-3"></th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each data.tests as test}
 						<tr class="group border-b border-border transition-colors hover:bg-secondary/30">
-							<td class="px-6 py-4 text-lg font-semibold text-foreground">{test.name}</td>
-							<td class="px-6 py-4"><StatusBadge status={test.type} size="sm" /></td>
-							<td class="px-6 py-4"><StatusBadge status={test.status} /></td>
-							<td class="px-6 py-4 text-base text-muted-foreground">{timeAgo(test.last_run)}</td>
-							<td class="px-6 py-4 text-base text-muted-foreground">{test.notes ?? '--'}</td>
-							<td class="px-6 py-4">
+							<td class="max-w-[200px] truncate px-5 py-3 text-base font-semibold text-foreground">{test.name}</td>
+							<td class="px-5 py-3"><StatusBadge status={test.type} size="sm" /></td>
+							<td class="px-5 py-3"><StatusBadge status={test.status} size="sm" /></td>
+							<td class="hidden px-5 py-3 text-sm text-muted-foreground md:table-cell">{timeAgo(test.last_run)}</td>
+							<td class="hidden px-5 py-3 text-sm text-muted-foreground lg:table-cell">{specName(test.spec_id) || '--'}</td>
+							<td class="hidden px-5 py-3 text-sm text-muted-foreground lg:table-cell">{taskNameOf(test.task_id) || '--'}</td>
+							<td class="hidden max-w-[150px] truncate px-5 py-3 text-sm text-muted-foreground xl:table-cell">{test.notes ?? '--'}</td>
+							<td class="px-5 py-3">
 								<div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
 									<button onclick={() => openEdit(test)} class="rounded p-2 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Edit"><Pencil size={16} /></button>
 									<button onclick={() => openDelete(test)} class="rounded p-2 text-muted-foreground hover:bg-red-900/40 hover:text-red-300" aria-label="Delete"><Trash2 size={16} /></button>

@@ -106,17 +106,17 @@
 			id: 'tests',
 			label: 'Tests',
 			paramName: 'testId',
-			get: { desc: 'List all tests', response: '{ "data": [ { id, name, type, status, last_run, notes } ] }' },
+			get: { desc: 'List all tests', response: '{ "data": [ { id, name, type, status, last_run, notes, spec_id, task_id } ] }' },
 			post: {
 				desc: 'Create a test',
-				body: '{ "name": "Login flow", "type": "integration", "status": "pending" }',
+				body: '{ "name": "Login flow", "type": "e2e", "status": "pending" }',
 				required: ['name'],
-				optional: ['type', 'status', 'notes']
+				optional: ['type', 'status', 'notes', 'spec_id', 'task_id']
 			},
 			patch: {
 				desc: 'Update a test (partial)',
 				body: '{ "status": "pass", "notes": "All assertions passed" }',
-				optional: ['name', 'type', 'status', 'last_run', 'notes']
+				optional: ['name', 'type', 'status', 'last_run', 'notes', 'spec_id', 'task_id']
 			},
 			del: { desc: 'Delete a test' }
 		},
@@ -490,6 +490,33 @@
 								{/if}
 							</div>
 						{/each}
+					</div>
+
+					<!-- Enum reference -->
+					<div class="mt-6 rounded-xl border border-border bg-card p-6">
+						<h3 class="text-xl font-bold text-foreground">Accepted Enum Values</h3>
+						<p class="mt-2 text-sm text-muted-foreground">Fields are validated server-side. Common aliases (e.g. "in progress" → "in_progress") are mapped automatically.</p>
+						<div class="mt-4 overflow-x-auto rounded-lg border border-border">
+							<table class="w-full text-left">
+								<thead class="border-b border-border bg-secondary/50">
+									<tr>
+										<th class="whitespace-nowrap px-4 py-3 text-sm font-semibold text-foreground">Resource</th>
+										<th class="whitespace-nowrap px-4 py-3 text-sm font-semibold text-foreground">Field</th>
+										<th class="px-4 py-3 text-sm font-semibold text-foreground">Values</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Specs</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">draft</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">approved</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">in_dev</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">completed</code></td></tr>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tasks</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">backlog</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">in_progress</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">review</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">testing</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">deployed</code></td></tr>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tasks</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">priority</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">low</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">medium</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">high</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">critical</code></td></tr>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tests</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">type</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">unit</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">integration</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">e2e</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">smoke</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">manual</code></td></tr>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tests</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">pass</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">fail</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">pending</code></td></tr>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Incidents</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">severity</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">low</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">medium</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">high</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">critical</code></td></tr>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Deployments</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">environment</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">development</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">staging</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">production</code></td></tr>
+									<tr><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Deployments</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">pending</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">in_progress</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">success</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">failed</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">rolled_back</code></td></tr>
+								</tbody>
+							</table>
+						</div>
 					</div>
 
 					<!-- Error codes -->

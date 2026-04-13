@@ -101,10 +101,9 @@ export function normalizeTaskPriority(raw: unknown): ParseResult {
 	return parseEnum(raw, TASK_PRIORITY_ALLOWED, TASK_PRIORITY_ALIASES, 'task priority');
 }
 
-const TEST_TYPE_ALLOWED = ['unit', 'integration', 'smoke', 'manual'] as const;
+const TEST_TYPE_ALLOWED = ['unit', 'integration', 'e2e', 'smoke', 'manual'] as const;
 const TEST_TYPE_ALIASES: Record<string, string> = {
-	e2e: 'integration',
-	end_to_end: 'integration',
+	end_to_end: 'e2e',
 	system: 'integration',
 	ui: 'manual',
 	exploratory: 'manual',

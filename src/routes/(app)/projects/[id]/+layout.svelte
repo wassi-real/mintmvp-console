@@ -8,14 +8,20 @@
 
 	const sectionLabel = $derived.by(() => {
 		const path = $page.url.pathname;
+		if (path.endsWith('/pipeline')) return 'Pipeline';
 		if (path.endsWith('/specs')) return 'Specs';
 		if (path.endsWith('/tasks')) return 'Tasks';
+		if (path.endsWith('/code')) return 'Codebase';
 		if (path.endsWith('/tests')) return 'Tests';
+		if (path.endsWith('/environments')) return 'Environments';
 		if (path.endsWith('/deployments')) return 'Deployments';
+		if (path.endsWith('/monitoring')) return 'Monitoring';
 		if (path.endsWith('/incidents')) return 'Incidents';
 		if (path.endsWith('/activity')) return 'Activity';
+		if (path.endsWith('/finance')) return 'Finance';
 		if (path.endsWith('/api')) return 'API';
 		if (path.endsWith('/reports')) return 'Reports';
+		if (path.endsWith('/settings')) return 'Settings';
 		return 'Overview';
 	});
 </script>

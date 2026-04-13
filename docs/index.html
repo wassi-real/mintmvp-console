@@ -21,8 +21,7 @@
 			<div class="hero-inner">
 				<h1>REST API for MintMVP Console</h1>
 				<p>
-					Use project-scoped API keys against <a href="https://console.mintmvp.com/projects" target="_blank" rel="noopener noreferrer">console.mintmvp.com</a> to create and list specs, tasks, tests, incidents, reports, and deployments —
-					the same surface as the in-app <strong>API → Docs</strong> page.
+					Use project-scoped API keys against <a href="https://console.mintmvp.com/projects" target="_blank" rel="noopener noreferrer">console.mintmvp.com</a> to manage specs, tasks, tests, incidents, reports, and deployments — plus track codebase commits, environments, pipeline status, and system health through the console UI.
 				</p>
 				<div class="hero-actions">
 					<button type="button" class="btn btn-primary" id="hero-scroll-docs">Read the docs</button>
@@ -36,17 +35,69 @@
 			<aside class="sidebar" id="doc-sidebar" aria-label="Documentation sections">
 				<p class="sidebar-title">On this page</p>
 				<a href="#docs">Overview</a>
+				<a href="#features">Console Features</a>
 				<a href="#configure">Base URL</a>
 				<a href="#authentication">Authentication</a>
 				<a href="#endpoints">Endpoints</a>
+				<a href="#enums">Enum Values</a>
 				<a href="#errors">Error codes</a>
-				<a href="#server">Server setup</a>
 			</aside>
 
 			<main class="content">
 				<section id="docs">
 					<h2 style="margin: 0 0 0.5rem; font-size: 2rem">Documentation</h2>
-					<p class="muted">Reference for <code class="inline-code">/api/v1/projects/:id/...</code> routes.</p>
+					<p class="muted">REST API reference and console feature overview for <code class="inline-code">/api/v1/projects/:id/...</code> routes.</p>
+				</section>
+
+				<section id="features" style="margin-top: 2rem">
+					<div class="card">
+						<h3>Console Features</h3>
+						<p class="muted">The MintMVP Console provides a complete project management dashboard with these modules:</p>
+						<div class="features-grid" style="margin-top: 1.25rem">
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(124, 58, 237, 0.2); color: var(--primary)">&#9654;</span>
+									<strong>Pipeline</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">Visual 6-stage overview (Spec → Dev → Testing → Staging → Production → Monitoring) derived from your project data. No manual setup required.</p>
+							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(59, 130, 246, 0.2); color: var(--blue)">&#128736;</span>
+									<strong>Codebase</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">Track commits and branches manually. Link commits to tasks for traceability. Status tracking: draft, in review, merged.</p>
+							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(34, 197, 94, 0.2); color: var(--green)">&#127760;</span>
+									<strong>Environments</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">Manage Development, Staging, and Production environments with URL, version, deploy status, and health indicators.</p>
+							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(239, 68, 68, 0.2); color: var(--red)">&#128147;</span>
+									<strong>Monitoring</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">System health dashboard with uptime status (up/down/degraded), error counts, warning counts, and open incident tracking.</p>
+							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(245, 158, 11, 0.2); color: var(--amber)">&#9874;</span>
+									<strong>Tests (Enhanced)</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">Extended with E2E test type, plus optional spec and task linking via <code class="inline-code">spec_id</code> and <code class="inline-code">task_id</code> fields.</p>
+							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(167, 139, 250, 0.15); color: var(--primary)">&#128209;</span>
+									<strong>Full CRUD API</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">REST endpoints for specs, tasks, tests, incidents, reports, and deployments with GET, POST, PATCH, DELETE support.</p>
+							</div>
+						</div>
+					</div>
 				</section>
 
 				<section id="configure" style="margin-top: 2rem">
@@ -99,6 +150,35 @@
 					<h3 style="margin: 0 0 1rem; font-size: 1.5rem">Endpoints</h3>
 					<p class="muted">Click a row to expand <strong>GET</strong>, <strong>POST</strong>, <strong>PATCH</strong>, and <strong>DELETE</strong> examples.</p>
 					<div id="endpoints-root"></div>
+				</section>
+
+				<section id="enums" style="margin-top: 1.5rem">
+					<div class="card">
+						<h3>Accepted Enum Values</h3>
+						<p class="muted">Status and type fields are validated server-side. Common aliases are mapped automatically.</p>
+						<div style="margin-top: 1rem; overflow: hidden; border-radius: 8px; border: 1px solid var(--border)">
+							<table>
+								<thead>
+									<tr>
+										<th>Resource</th>
+										<th>Field</th>
+										<th>Accepted Values</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr><td>Specs</td><td class="muted">status</td><td class="muted"><code class="inline-code">draft</code>, <code class="inline-code">approved</code>, <code class="inline-code">in_dev</code>, <code class="inline-code">completed</code></td></tr>
+									<tr><td>Tasks</td><td class="muted">status</td><td class="muted"><code class="inline-code">backlog</code>, <code class="inline-code">in_progress</code>, <code class="inline-code">review</code>, <code class="inline-code">testing</code>, <code class="inline-code">deployed</code></td></tr>
+									<tr><td>Tasks</td><td class="muted">priority</td><td class="muted"><code class="inline-code">low</code>, <code class="inline-code">medium</code>, <code class="inline-code">high</code>, <code class="inline-code">critical</code></td></tr>
+									<tr><td>Tests</td><td class="muted">type</td><td class="muted"><code class="inline-code">unit</code>, <code class="inline-code">integration</code>, <code class="inline-code">e2e</code>, <code class="inline-code">smoke</code>, <code class="inline-code">manual</code></td></tr>
+									<tr><td>Tests</td><td class="muted">status</td><td class="muted"><code class="inline-code">pass</code>, <code class="inline-code">fail</code>, <code class="inline-code">pending</code></td></tr>
+									<tr><td>Incidents</td><td class="muted">severity</td><td class="muted"><code class="inline-code">low</code>, <code class="inline-code">medium</code>, <code class="inline-code">high</code>, <code class="inline-code">critical</code></td></tr>
+									<tr><td>Incidents</td><td class="muted">status</td><td class="muted"><code class="inline-code">open</code>, <code class="inline-code">investigating</code>, <code class="inline-code">resolved</code></td></tr>
+									<tr><td>Deployments</td><td class="muted">environment</td><td class="muted"><code class="inline-code">development</code>, <code class="inline-code">staging</code>, <code class="inline-code">production</code></td></tr>
+									<tr><td>Deployments</td><td class="muted">status</td><td class="muted"><code class="inline-code">pending</code>, <code class="inline-code">in_progress</code>, <code class="inline-code">success</code>, <code class="inline-code">failed</code>, <code class="inline-code">rolled_back</code></td></tr>
+								</tbody>
+							</table>
+						</div>
+					</div>
 				</section>
 
 				<section id="errors" style="margin-top: 1.5rem">

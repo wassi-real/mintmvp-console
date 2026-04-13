@@ -55,18 +55,18 @@
 			singular: 'test',
 			get: {
 				desc: 'List all tests',
-				response: '{ "data": [ { id, name, type, status, last_run, notes } ] }'
+				response: '{ "data": [ { id, name, type, status, last_run, notes, spec_id, task_id } ] }'
 			},
 			post: {
 				desc: 'Create a test',
-				body: '{ "name": "Login flow", "type": "integration", "status": "pending" }',
+				body: '{ "name": "Login flow", "type": "e2e", "status": "pending" }',
 				required: ['name'],
-				optional: ['type', 'status', 'notes']
+				optional: ['type', 'status', 'notes', 'spec_id', 'task_id']
 			},
 			patch: {
 				desc: 'Update a test (partial)',
 				body: '{ "status": "pass", "notes": "All assertions passed" }',
-				optional: ['name', 'type', 'status', 'last_run', 'notes']
+				optional: ['name', 'type', 'status', 'last_run', 'notes', 'spec_id', 'task_id']
 			},
 			del: { desc: 'Delete a test' }
 		},
