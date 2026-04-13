@@ -21,7 +21,10 @@
 		if (path.endsWith('/finance')) return 'Finance';
 		if (path.endsWith('/api')) return 'API';
 		if (path.endsWith('/reports')) return 'Reports';
+		if (path.includes('/settings/github')) return 'GitHub Integration';
 		if (path.endsWith('/settings')) return 'Settings';
+		if (path.endsWith('/github')) return 'GitHub';
+		if (path.endsWith('/ci')) return 'CI / CD';
 		return 'Overview';
 	});
 </script>

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/PageHeader.svelte';
-	import { FileText, ListTodo, FlaskConical, Server, Rocket, HeartPulse, ArrowRight } from 'lucide-svelte';
+	import { FileText, ListTodo, GitPullRequest, Play, FlaskConical, Server, Rocket, HeartPulse, ArrowRight } from 'lucide-svelte';
 
 	let { data } = $props();
 
-	const stageIcons = [FileText, ListTodo, FlaskConical, Server, Rocket, HeartPulse];
+	const stageIcons = [FileText, ListTodo, GitPullRequest, Play, FlaskConical, Server, Rocket, HeartPulse];
 
 	const statusColors: Record<string, string> = {
 		passed: 'border-green-500 bg-green-950/30 text-green-400',
@@ -35,7 +35,7 @@
 	<PageHeader title="Pipeline" description="Spec to Production at a glance" />
 
 	<!-- Pipeline stepper — stacks vertically on small, 2-col on medium, horizontal on large -->
-	<div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
+	<div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
 		{#each data.stages as stage, i}
 			{@const Icon = stageIcons[i]}
 			<div class="flex flex-col items-center rounded-xl border-2 p-5 transition-colors {statusColors[stage.status]}">

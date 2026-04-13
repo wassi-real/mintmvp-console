@@ -3,7 +3,7 @@
 	import { invalidateAll } from '$app/navigation';
 	import {
 		Settings2, Save, Trash2, Loader, AlertTriangle,
-		Globe, GitBranch, Rocket, Activity, CheckCircle
+		Globe, GitBranch, Rocket, Activity, CheckCircle, Github, ChevronRight
 	} from 'lucide-svelte';
 
 	let { data } = $props();
@@ -223,6 +223,26 @@
 					</a>
 				</div>
 			</div>
+		</div>
+	</section>
+
+	<!-- ─── Integrations ─────────────────────────────── -->
+	<section class="mt-8">
+		<h2 class="mb-4 text-lg font-semibold text-foreground">Integrations</h2>
+		<div class="rounded-xl border border-border bg-card">
+			<a
+				href="/projects/{data.project.id}/settings/github"
+				class="flex items-center justify-between px-6 py-4 transition-colors hover:bg-secondary/30"
+			>
+				<div class="flex items-center gap-3">
+					<Github size={20} class="text-foreground" />
+					<div>
+						<p class="text-sm font-semibold text-foreground">GitHub</p>
+						<p class="text-xs text-muted-foreground">Connect repo, sync branches, PRs, CI, and deployments</p>
+					</div>
+				</div>
+				<ChevronRight size={16} class="text-muted-foreground" />
+			</a>
 		</div>
 	</section>
 

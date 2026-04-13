@@ -39,6 +39,7 @@
 				<a href="#configure">Base URL</a>
 				<a href="#authentication">Authentication</a>
 				<a href="#endpoints">Endpoints</a>
+				<a href="#github">GitHub Integration</a>
 				<a href="#enums">Enum Values</a>
 				<a href="#errors">Error codes</a>
 			</aside>
@@ -96,6 +97,27 @@
 								</div>
 								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">REST endpoints for specs, tasks, tests, incidents, reports, and deployments with GET, POST, PATCH, DELETE support.</p>
 							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(36, 41, 47, 0.3); color: var(--foreground)">&#128025;</span>
+									<strong>GitHub Integration</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">Connect via GitHub App to auto-sync branches, PRs, commits, CI runs, and deployments. Webhook-driven real-time updates.</p>
+							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(59, 130, 246, 0.2); color: var(--blue)">&#9654;</span>
+									<strong>CI / CD</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">View GitHub Actions workflow runs, deployment history, staging/production status — all synced automatically from your repository.</p>
+							</div>
+							<div class="feature-item">
+								<div class="feature-header">
+									<span class="feature-icon" style="background: rgba(34, 197, 94, 0.2); color: var(--green)">&#128176;</span>
+									<strong>Finance</strong>
+								</div>
+								<p class="muted" style="margin: 0.5rem 0 0; font-size: 0.9rem">Track project milestones, payments, and expenses. Overview with budget, paid, pending, and outstanding balance summaries.</p>
+							</div>
 						</div>
 					</div>
 				</section>
@@ -150,6 +172,47 @@
 					<h3 style="margin: 0 0 1rem; font-size: 1.5rem">Endpoints</h3>
 					<p class="muted">Click a row to expand <strong>GET</strong>, <strong>POST</strong>, <strong>PATCH</strong>, and <strong>DELETE</strong> examples.</p>
 					<div id="endpoints-root"></div>
+				</section>
+
+				<section id="github" style="margin-top: 1.5rem">
+					<div class="card">
+						<h3>GitHub Integration</h3>
+						<p class="muted">Connect your GitHub repository to auto-sync development data into MintMVP Console.</p>
+
+						<h4 style="margin-top: 1rem">Setup</h4>
+						<ol class="muted" style="padding-left: 1.5rem; font-size: 0.9rem">
+							<li>Create a <strong>GitHub App</strong> with permissions: Contents (read), Pull Requests (read), Deployments (read), Actions (read), and Webhooks.</li>
+							<li>Set webhook URL to <code class="inline-code">https://your-domain/api/github/webhook</code></li>
+							<li>Add env vars: <code class="inline-code">GITHUB_APP_ID</code>, <code class="inline-code">GITHUB_APP_PRIVATE_KEY</code>, <code class="inline-code">GITHUB_WEBHOOK_SECRET</code></li>
+							<li>Install the App on your org and connect via <strong>Settings &gt; Integrations &gt; GitHub</strong> in the console.</li>
+						</ol>
+
+						<h4 style="margin-top: 1rem">Webhook Endpoint</h4>
+						<p class="muted" style="font-size: 0.9rem">
+							<code class="inline-code">POST /api/github/webhook</code> — receives GitHub webhook events. Signature is verified with <code class="inline-code">x-hub-signature-256</code>. Events are deduplicated by <code class="inline-code">x-github-delivery</code>.
+						</p>
+
+						<h4 style="margin-top: 1rem">Handled Events</h4>
+						<table style="margin-top: 0.5rem">
+							<thead><tr><th>Event</th><th>Synced Data</th></tr></thead>
+							<tbody>
+								<tr><td><code class="inline-code">push</code></td><td>Branches + commits</td></tr>
+								<tr><td><code class="inline-code">pull_request</code></td><td>Pull requests (open/merged/closed)</td></tr>
+								<tr><td><code class="inline-code">workflow_run</code></td><td>CI run status</td></tr>
+								<tr><td><code class="inline-code">deployment</code></td><td>GitHub deployments</td></tr>
+								<tr><td><code class="inline-code">deployment_status</code></td><td>Deploy status updates</td></tr>
+							</tbody>
+						</table>
+
+						<h4 style="margin-top: 1rem">Synced Tables</h4>
+						<p class="muted" style="font-size: 0.9rem">
+							<code class="inline-code">github_branches</code>,
+							<code class="inline-code">github_pull_requests</code>,
+							<code class="inline-code">github_commits</code>,
+							<code class="inline-code">github_ci_runs</code>,
+							<code class="inline-code">github_deployments</code>
+						</p>
+					</div>
 				</section>
 
 				<section id="enums" style="margin-top: 1.5rem">

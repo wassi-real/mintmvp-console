@@ -9,14 +9,18 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		{ data: tests },
 		{ data: deployments },
 		{ data: incidents },
-		{ data: health }
+		{ data: health },
+		{ data: ghPRs },
+		{ data: ghCI }
 	] = await Promise.all([
 		locals.supabase.from('specs').select('id, status').eq('project_id', pid),
 		locals.supabase.from('tasks').select('id, status').eq('project_id', pid),
 		locals.supabase.from('tests').select('id, status').eq('project_id', pid),
 		locals.supabase.from('deployments').select('id, status, environment').eq('project_id', pid).order('created_at', { ascending: false }),
 		locals.supabase.from('incidents').select('id, status').eq('project_id', pid),
-		locals.supabase.from('project_health').select('*').eq('project_id', pid).maybeSingle()
+		locals.supabase.from('project_health').select('*').eq('project_id', pid).maybeSingle(),
+		locals.supabase.from('github_pull_requests').select('id, status').eq('project_id', pid),
+		locals.supabase.from('github_ci_runs').select('id, status').eq('project_id', pid)
 	]);
 
 	const specList = (specs ?? []) as any[];
@@ -24,6 +28,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const testList = (tests ?? []) as any[];
 	const deployList = (deployments ?? []) as any[];
 	const incidentList = (incidents ?? []) as any[];
+	const prList = (ghPRs ?? []) as any[];
+	const ciList = (ghCI ?? []) as any[];
 
 	function deriveStage(items: any[], doneStatuses: string[], activeStatuses: string[]): string {
 		if (items.length === 0) return 'empty';
@@ -47,6 +53,29 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			status: deriveStage(taskList, ['deployed'], ['in_progress', 'review', 'testing']),
 			count: taskList.length,
 			detail: `${taskList.filter((t) => t.status === 'deployed').length} deployed`
+		},
+		{
+			name: 'PR',
+			status: (() => {
+				if (prList.length === 0) return 'empty';
+				if (prList.some((p: any) => p.status === 'open')) return 'in_progress';
+				if (prList.every((p: any) => p.status === 'merged')) return 'passed';
+				return 'pending';
+			})(),
+			count: prList.length,
+			detail: `${prList.filter((p: any) => p.status === 'open').length} open, ${prList.filter((p: any) => p.status === 'merged').length} merged`
+		},
+		{
+			name: 'CI',
+			status: (() => {
+				if (ciList.length === 0) return 'empty';
+				if (ciList.some((r: any) => r.status === 'failure')) return 'failed';
+				if (ciList.every((r: any) => r.status === 'success')) return 'passed';
+				if (ciList.some((r: any) => r.status === 'in_progress' || r.status === 'pending')) return 'in_progress';
+				return 'pending';
+			})(),
+			count: ciList.length,
+			detail: `${ciList.filter((r: any) => r.status === 'success').length} pass, ${ciList.filter((r: any) => r.status === 'failure').length} fail`
 		},
 		{
 			name: 'Testing',

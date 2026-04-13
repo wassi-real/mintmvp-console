@@ -12,8 +12,11 @@
 		ExternalLink,
 		GitCommitHorizontal,
 		GitBranch,
+		GitPullRequest,
+		Play,
 		HeartPulse,
 		Globe,
+		Github,
 		CheckCircle,
 		XCircle,
 		AlertCircle
@@ -150,6 +153,21 @@
 		<StatCard label="Branches" value={data.stats.branches} icon={GitBranch} />
 		<StatCard label="Stable" value={data.stats.branchesStable} icon={GitBranch} variant={data.stats.branchesStable > 0 ? 'success' : 'default'} />
 	</div>
+
+	<!-- GitHub stats -->
+	{#if data.ghIntegration}
+		<div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+			<StatCard label="Pull Requests" value={data.stats.ghPRs} icon={GitPullRequest} />
+			<StatCard label="Open PRs" value={data.stats.ghPRsOpen} icon={GitPullRequest} variant={data.stats.ghPRsOpen > 0 ? 'warning' : 'default'} />
+			<StatCard label="CI Runs" value={data.stats.ghCIRuns} icon={Play} />
+			<StatCard label="CI Passing" value={data.stats.ghCIPassing} icon={Play} variant={data.stats.ghCIPassing > 0 ? 'success' : 'default'} />
+		</div>
+		<div class="mt-4 flex items-center gap-2 rounded-lg border border-border bg-card/50 px-4 py-2 text-xs text-muted-foreground">
+			<Github size={14} />
+			<span class="font-mono font-semibold text-foreground">{data.ghIntegration.repo_owner}/{data.ghIntegration.repo_name}</span>
+			<span>&middot; Last sync: {timeAgo(data.ghIntegration.last_sync_at)}</span>
+		</div>
+	{/if}
 
 	<!-- Recent Deployments -->
 	<div class="mt-8">

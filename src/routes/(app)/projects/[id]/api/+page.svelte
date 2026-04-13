@@ -88,17 +88,17 @@
 			id: 'tasks',
 			label: 'Tasks',
 			paramName: 'taskId',
-			get: { desc: 'List all tasks', response: '{ "data": [ { id, title, status, priority, assignee, ... } ] }' },
+			get: { desc: 'List all tasks', response: '{ "data": [ { id, title, status, priority, assignee, branch_name, ... } ] }' },
 			post: {
 				desc: 'Create a task',
 				body: '{ "title": "Fix bug", "priority": "high", "status": "backlog" }',
 				required: ['title'],
-				optional: ['description', 'status', 'priority', 'assignee', 'spec_id']
+				optional: ['description', 'status', 'priority', 'assignee', 'spec_id', 'branch_name']
 			},
 			patch: {
 				desc: 'Update a task (partial)',
 				body: '{ "status": "in_progress", "priority": "high" }',
-				optional: ['title', 'description', 'status', 'priority', 'assignee', 'spec_id']
+				optional: ['title', 'description', 'status', 'priority', 'assignee', 'spec_id', 'branch_name']
 			},
 			del: { desc: 'Delete a task' }
 		},
@@ -106,17 +106,17 @@
 			id: 'tests',
 			label: 'Tests',
 			paramName: 'testId',
-			get: { desc: 'List all tests', response: '{ "data": [ { id, name, type, status, last_run, notes, spec_id, task_id } ] }' },
+			get: { desc: 'List all tests', response: '{ "data": [ { id, name, type, status, source, linked_commit, last_run, notes, spec_id, task_id } ] }' },
 			post: {
 				desc: 'Create a test',
 				body: '{ "name": "Login flow", "type": "e2e", "status": "pending" }',
 				required: ['name'],
-				optional: ['type', 'status', 'notes', 'spec_id', 'task_id']
+				optional: ['type', 'status', 'notes', 'spec_id', 'task_id', 'source', 'linked_commit']
 			},
 			patch: {
 				desc: 'Update a test (partial)',
 				body: '{ "status": "pass", "notes": "All assertions passed" }',
-				optional: ['name', 'type', 'status', 'last_run', 'notes', 'spec_id', 'task_id']
+				optional: ['name', 'type', 'status', 'last_run', 'notes', 'spec_id', 'task_id', 'source', 'linked_commit']
 			},
 			del: { desc: 'Delete a test' }
 		},

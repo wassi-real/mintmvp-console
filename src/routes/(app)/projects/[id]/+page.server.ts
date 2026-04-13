@@ -7,7 +7,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 	const [
 		specsRes, tasksRes, testsRes, deploymentsRes, incidentsRes, activityRes,
-		healthRes, envsRes, commitsRes, branchesRes
+		healthRes, envsRes, commitsRes, branchesRes,
+		ghIntegrationRes, ghPRsRes, ghCIRes
 	] = await Promise.all([
 		supabase.from('specs').select('id, status').eq('project_id', projectId),
 		supabase.from('tasks').select('id, status').eq('project_id', projectId),
@@ -28,7 +29,10 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		supabase.from('project_health').select('*').eq('project_id', projectId).maybeSingle(),
 		supabase.from('project_environments').select('*').eq('project_id', projectId).order('kind'),
 		supabase.from('code_commits').select('id, status').eq('project_id', projectId),
-		supabase.from('repo_branches').select('id, status').eq('project_id', projectId)
+		supabase.from('repo_branches').select('id, status').eq('project_id', projectId),
+		supabase.from('project_integrations_github').select('repo_owner, repo_name, last_sync_at').eq('project_id', projectId).maybeSingle(),
+		supabase.from('github_pull_requests').select('id, status').eq('project_id', projectId),
+		supabase.from('github_ci_runs').select('id, status').eq('project_id', projectId)
 	]);
 
 	const specs = (specsRes.data ?? []) as any[];
@@ -41,6 +45,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	const environments = (envsRes.data ?? []) as Tables<'project_environments'>[];
 	const commits = (commitsRes.data ?? []) as any[];
 	const branches = (branchesRes.data ?? []) as any[];
+	const ghIntegration = ghIntegrationRes.data as { repo_owner: string; repo_name: string; last_sync_at: string | null } | null;
+	const ghPRs = (ghPRsRes.data ?? []) as any[];
+	const ghCIRuns = (ghCIRes.data ?? []) as any[];
 
 	return {
 		stats: {
@@ -57,10 +64,15 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			commits: commits.length,
 			commitsMerged: commits.filter((c) => c.status === 'merged').length,
 			branches: branches.length,
-			branchesStable: branches.filter((b) => b.status === 'stable').length
+			branchesStable: branches.filter((b) => b.status === 'stable').length,
+			ghPRs: ghPRs.length,
+			ghPRsOpen: ghPRs.filter((p: any) => p.status === 'open').length,
+			ghCIRuns: ghCIRuns.length,
+			ghCIPassing: ghCIRuns.filter((r: any) => r.status === 'success').length
 		},
 		health,
 		environments,
+		ghIntegration,
 		recentDeploys: deployments,
 		recentActivity
 	};

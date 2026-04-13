@@ -114,76 +114,85 @@ export type Database = {
 					created_at?: string;
 				};
 			};
-			tasks: {
-				Row: {
-					id: string;
-					project_id: string;
-					spec_id: string | null;
-					title: string;
-					description: string | null;
-					status: 'backlog' | 'in_progress' | 'review' | 'testing' | 'deployed';
-					priority: 'low' | 'medium' | 'high';
-					assignee: string | null;
-					created_at: string;
-				};
-				Insert: {
-					id?: string;
-					project_id: string;
-					spec_id?: string | null;
-					title: string;
-					description?: string | null;
-					status?: 'backlog' | 'in_progress' | 'review' | 'testing' | 'deployed';
-					priority?: 'low' | 'medium' | 'high';
-					assignee?: string | null;
-					created_at?: string;
-				};
-				Update: {
-					id?: string;
-					project_id?: string;
-					spec_id?: string | null;
-					title?: string;
-					description?: string | null;
-					status?: 'backlog' | 'in_progress' | 'review' | 'testing' | 'deployed';
-					priority?: 'low' | 'medium' | 'high';
-					assignee?: string | null;
-					created_at?: string;
-				};
+		tasks: {
+			Row: {
+				id: string;
+				project_id: string;
+				spec_id: string | null;
+				title: string;
+				description: string | null;
+				status: 'backlog' | 'in_progress' | 'review' | 'testing' | 'deployed';
+				priority: 'low' | 'medium' | 'high';
+				assignee: string | null;
+				branch_name: string | null;
+				created_at: string;
 			};
-			tests: {
-				Row: {
-					id: string;
-					project_id: string;
-					name: string;
-					type: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
-					status: 'pass' | 'fail' | 'pending';
-					last_run: string | null;
-					notes: string | null;
-					spec_id: string | null;
-					task_id: string | null;
-				};
-				Insert: {
-					id?: string;
-					project_id: string;
-					name: string;
-					type: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
-					status?: 'pass' | 'fail' | 'pending';
-					last_run?: string | null;
-					notes?: string | null;
-					spec_id?: string | null;
-					task_id?: string | null;
-				};
-				Update: {
-					id?: string;
-					project_id?: string;
-					name?: string;
-					type?: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
-					status?: 'pass' | 'fail' | 'pending';
-					last_run?: string | null;
-					notes?: string | null;
-					spec_id?: string | null;
-					task_id?: string | null;
-				};
+			Insert: {
+				id?: string;
+				project_id: string;
+				spec_id?: string | null;
+				title: string;
+				description?: string | null;
+				status?: 'backlog' | 'in_progress' | 'review' | 'testing' | 'deployed';
+				priority?: 'low' | 'medium' | 'high';
+				assignee?: string | null;
+				branch_name?: string | null;
+				created_at?: string;
 			};
+			Update: {
+				id?: string;
+				project_id?: string;
+				spec_id?: string | null;
+				title?: string;
+				description?: string | null;
+				status?: 'backlog' | 'in_progress' | 'review' | 'testing' | 'deployed';
+				priority?: 'low' | 'medium' | 'high';
+				assignee?: string | null;
+				branch_name?: string | null;
+				created_at?: string;
+			};
+		};
+		tests: {
+			Row: {
+				id: string;
+				project_id: string;
+				name: string;
+				type: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
+				status: 'pass' | 'fail' | 'pending';
+				last_run: string | null;
+				notes: string | null;
+				spec_id: string | null;
+				task_id: string | null;
+				source: 'manual' | 'github';
+				linked_commit: string | null;
+			};
+			Insert: {
+				id?: string;
+				project_id: string;
+				name: string;
+				type: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
+				status?: 'pass' | 'fail' | 'pending';
+				last_run?: string | null;
+				notes?: string | null;
+				spec_id?: string | null;
+				task_id?: string | null;
+				source?: 'manual' | 'github';
+				linked_commit?: string | null;
+			};
+			Update: {
+				id?: string;
+				project_id?: string;
+				name?: string;
+				type?: 'unit' | 'integration' | 'e2e' | 'smoke' | 'manual';
+				status?: 'pass' | 'fail' | 'pending';
+				last_run?: string | null;
+				notes?: string | null;
+				spec_id?: string | null;
+				task_id?: string | null;
+				source?: 'manual' | 'github';
+				linked_commit?: string | null;
+			};
+		};
 			code_commits: {
 				Row: {
 					id: string;
@@ -294,44 +303,47 @@ export type Database = {
 					warning_count?: number;
 				};
 			};
-			milestones: {
-				Row: {
-					id: string;
-					project_id: string;
-					title: string;
-					description: string;
-					amount: number;
-					status: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
-					due_date: string | null;
-					paid_date: string | null;
-					notes: string;
-					created_at: string;
-				};
-				Insert: {
-					id?: string;
-					project_id: string;
-					title: string;
-					description?: string;
-					amount?: number;
-					status?: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
-					due_date?: string | null;
-					paid_date?: string | null;
-					notes?: string;
-					created_at?: string;
-				};
-				Update: {
-					id?: string;
-					project_id?: string;
-					title?: string;
-					description?: string;
-					amount?: number;
-					status?: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
-					due_date?: string | null;
-					paid_date?: string | null;
-					notes?: string;
-					created_at?: string;
-				};
+		milestones: {
+			Row: {
+				id: string;
+				project_id: string;
+				title: string;
+				description: string;
+				amount: number;
+				status: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
+				due_date: string | null;
+				paid_date: string | null;
+				notes: string;
+				task_id: string | null;
+				created_at: string;
 			};
+			Insert: {
+				id?: string;
+				project_id: string;
+				title: string;
+				description?: string;
+				amount?: number;
+				status?: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
+				due_date?: string | null;
+				paid_date?: string | null;
+				notes?: string;
+				task_id?: string | null;
+				created_at?: string;
+			};
+			Update: {
+				id?: string;
+				project_id?: string;
+				title?: string;
+				description?: string;
+				amount?: number;
+				status?: 'planned' | 'active' | 'ready_for_payment' | 'paid' | 'overdue';
+				due_date?: string | null;
+				paid_date?: string | null;
+				notes?: string;
+				task_id?: string | null;
+				created_at?: string;
+			};
+		};
 			payments: {
 				Row: {
 					id: string;
@@ -394,6 +406,218 @@ export type Database = {
 					spent_at?: string;
 					notes?: string;
 					created_at?: string;
+				};
+			};
+			project_integrations_github: {
+				Row: {
+					id: string;
+					project_id: string;
+					installation_id: number;
+					repo_owner: string;
+					repo_name: string;
+					access_token: string;
+					token_expires_at: string | null;
+					last_sync_at: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					installation_id: number;
+					repo_owner: string;
+					repo_name: string;
+					access_token?: string;
+					token_expires_at?: string | null;
+					last_sync_at?: string | null;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					installation_id?: number;
+					repo_owner?: string;
+					repo_name?: string;
+					access_token?: string;
+					token_expires_at?: string | null;
+					last_sync_at?: string | null;
+					created_at?: string;
+				};
+			};
+			github_branches: {
+				Row: {
+					id: string;
+					project_id: string;
+					name: string;
+					last_commit_sha: string;
+					last_commit_message: string;
+					updated_at: string;
+					status: 'active' | 'stale';
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					name: string;
+					last_commit_sha?: string;
+					last_commit_message?: string;
+					updated_at?: string;
+					status?: 'active' | 'stale';
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					name?: string;
+					last_commit_sha?: string;
+					last_commit_message?: string;
+					updated_at?: string;
+					status?: 'active' | 'stale';
+				};
+			};
+			github_pull_requests: {
+				Row: {
+					id: string;
+					project_id: string;
+					gh_number: number;
+					title: string;
+					branch: string;
+					status: 'open' | 'merged' | 'closed';
+					author: string;
+					created_at: string;
+					merged_at: string | null;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					gh_number: number;
+					title: string;
+					branch?: string;
+					status?: 'open' | 'merged' | 'closed';
+					author?: string;
+					created_at?: string;
+					merged_at?: string | null;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					gh_number?: number;
+					title?: string;
+					branch?: string;
+					status?: 'open' | 'merged' | 'closed';
+					author?: string;
+					created_at?: string;
+					merged_at?: string | null;
+				};
+			};
+			github_commits: {
+				Row: {
+					id: string;
+					project_id: string;
+					sha: string;
+					branch: string;
+					message: string;
+					author: string;
+					committed_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					sha: string;
+					branch?: string;
+					message?: string;
+					author?: string;
+					committed_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					sha?: string;
+					branch?: string;
+					message?: string;
+					author?: string;
+					committed_at?: string;
+				};
+			};
+			github_ci_runs: {
+				Row: {
+					id: string;
+					project_id: string;
+					gh_run_id: number;
+					workflow_name: string;
+					branch: string;
+					commit_sha: string;
+					status: 'pending' | 'in_progress' | 'success' | 'failure' | 'cancelled';
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					gh_run_id: number;
+					workflow_name?: string;
+					branch?: string;
+					commit_sha?: string;
+					status?: 'pending' | 'in_progress' | 'success' | 'failure' | 'cancelled';
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					gh_run_id?: number;
+					workflow_name?: string;
+					branch?: string;
+					commit_sha?: string;
+					status?: 'pending' | 'in_progress' | 'success' | 'failure' | 'cancelled';
+					created_at?: string;
+				};
+			};
+			github_deployments: {
+				Row: {
+					id: string;
+					project_id: string;
+					gh_deploy_id: number;
+					environment: string;
+					commit_sha: string;
+					status: 'pending' | 'success' | 'failure' | 'inactive';
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					gh_deploy_id: number;
+					environment?: string;
+					commit_sha?: string;
+					status?: 'pending' | 'success' | 'failure' | 'inactive';
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					gh_deploy_id?: number;
+					environment?: string;
+					commit_sha?: string;
+					status?: 'pending' | 'success' | 'failure' | 'inactive';
+					created_at?: string;
+				};
+			};
+			github_webhook_events: {
+				Row: {
+					id: string;
+					delivery_id: string;
+					event_type: string;
+					payload: Record<string, unknown>;
+					processed_at: string;
+				};
+				Insert: {
+					id?: string;
+					delivery_id: string;
+					event_type: string;
+					payload?: Record<string, unknown>;
+					processed_at?: string;
+				};
+				Update: {
+					id?: string;
+					delivery_id?: string;
+					event_type?: string;
+					payload?: Record<string, unknown>;
+					processed_at?: string;
 				};
 			};
 			deployments: {

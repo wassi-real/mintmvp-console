@@ -47,6 +47,12 @@
 		medium: 'bg-amber-900/60 text-amber-300',
 		high: 'bg-orange-900/60 text-orange-300',
 		critical: 'bg-red-900/60 text-red-300',
+		// ci statuses (in_progress already covered above)
+		cancelled: 'bg-zinc-600 text-zinc-200',
+		inactive: 'bg-zinc-700 text-zinc-200',
+		// pr statuses
+		merged: 'bg-purple-900/60 text-purple-300',
+		closed: 'bg-red-900/60 text-red-300',
 		// finance — milestone statuses
 		planned: 'bg-zinc-700 text-zinc-200',
 		ready_for_payment: 'bg-amber-900/60 text-amber-300',

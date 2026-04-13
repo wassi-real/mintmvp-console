@@ -4,7 +4,7 @@ import { fail } from '@sveltejs/kit';
 import { logActivity, getActorName } from '$lib/server/activity';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	const [{ data: milestones }, { data: payments }, { data: expenses }] = await Promise.all([
+	const [{ data: milestones }, { data: payments }, { data: expenses }, { data: tasks }] = await Promise.all([
 		locals.supabase
 			.from('milestones')
 			.select('*')
@@ -19,13 +19,19 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			.from('expenses')
 			.select('*')
 			.eq('project_id', params.id)
-			.order('spent_at', { ascending: false })
+			.order('spent_at', { ascending: false }),
+		locals.supabase
+			.from('tasks')
+			.select('id, title')
+			.eq('project_id', params.id)
+			.order('title')
 	]);
 
 	return {
 		milestones: (milestones ?? []) as Tables<'milestones'>[],
 		payments: (payments ?? []) as Tables<'payments'>[],
-		expenses: (expenses ?? []) as Tables<'expenses'>[]
+		expenses: (expenses ?? []) as Tables<'expenses'>[],
+		tasks: (tasks ?? []) as { id: string; title: string }[]
 	};
 };
 
@@ -39,6 +45,7 @@ export const actions: Actions = {
 		const due_date = (form.get('due_date') as string)?.trim() || null;
 		const paid_date = (form.get('paid_date') as string)?.trim() || null;
 		const notes = (form.get('notes') as string)?.trim() || '';
+		const task_id = (form.get('task_id') as string)?.trim() || null;
 
 		if (!title) return fail(400, { error: 'Title is required' });
 
@@ -50,7 +57,8 @@ export const actions: Actions = {
 			status,
 			due_date: due_date || null,
 			paid_date: paid_date || null,
-			notes
+			notes,
+			task_id: task_id || null
 		});
 
 		if (error) return fail(500, { error: error.message });
@@ -68,11 +76,12 @@ export const actions: Actions = {
 		const due_date = (form.get('due_date') as string)?.trim() || null;
 		const paid_date = (form.get('paid_date') as string)?.trim() || null;
 		const notes = (form.get('notes') as string)?.trim() || '';
+		const task_id = (form.get('task_id') as string)?.trim() || null;
 
 		if (!id || !title) return fail(400, { error: 'ID and title are required' });
 
 		const { error } = await (locals.supabase.from('milestones') as any)
-			.update({ title, description, amount, status, due_date: due_date || null, paid_date: paid_date || null, notes })
+			.update({ title, description, amount, status, due_date: due_date || null, paid_date: paid_date || null, notes, task_id: task_id || null })
 			.eq('id', id);
 
 		if (error) return fail(500, { error: error.message });

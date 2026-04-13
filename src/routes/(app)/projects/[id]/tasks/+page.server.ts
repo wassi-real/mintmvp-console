@@ -21,6 +21,7 @@ export const actions: Actions = {
 		const priority = (form.get('priority') as string) || 'medium';
 		const assignee = (form.get('assignee') as string)?.trim() || null;
 		const status = (form.get('status') as string) || 'backlog';
+		const branch_name = (form.get('branch_name') as string)?.trim() || null;
 
 		if (!title) return fail(400, { error: 'Title is required' });
 
@@ -30,7 +31,8 @@ export const actions: Actions = {
 			description,
 			priority,
 			assignee,
-			status
+			status,
+			branch_name
 		});
 
 		if (error) return fail(500, { error: error.message });
@@ -47,11 +49,12 @@ export const actions: Actions = {
 		const priority = (form.get('priority') as string) || 'medium';
 		const assignee = (form.get('assignee') as string)?.trim() || null;
 		const status = (form.get('status') as string) || 'backlog';
+		const branch_name = (form.get('branch_name') as string)?.trim() || null;
 
 		if (!taskId || !title) return fail(400, { error: 'Task ID and title are required' });
 
 		const { error } = await (locals.supabase.from('tasks') as any)
-			.update({ title, description, priority, assignee, status })
+			.update({ title, description, priority, assignee, status, branch_name })
 			.eq('id', taskId);
 
 		if (error) return fail(500, { error: error.message });
