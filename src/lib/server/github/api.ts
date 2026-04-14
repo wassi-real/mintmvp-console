@@ -2,30 +2,118 @@ import { createAppJwt } from './jwt';
 
 const GH_API = 'https://api.github.com';
 
-/**
- * Exchange an installation ID for a short-lived access token.
- */
-export async function getInstallationToken(
-	installationId: number
-): Promise<{ token: string; expires_at: string }> {
-	const jwt = createAppJwt();
-	const res = await ghFetch(`/app/installations/${installationId}/access_tokens`, {
-		method: 'POST',
-		headers: { Authorization: `Bearer ${jwt}` }
-	});
-	return res as { token: string; expires_at: string };
+/** Installation access tokens should use Bearer (GitHub docs; token scheme is for classic PATs). */
+export function installationAuthHeaders(token: string): { Authorization: string } {
+	return { Authorization: `Bearer ${token}` };
+}
+
+export type InstallationTokenOptions = {
+	/** Narrow token to these full names (`owner/repo`). Strongly recommended for repo API calls. */
+	repositories?: string[];
+};
+
+function isRepoScopeToken422(message: string): boolean {
+	const m = message.toLowerCase();
+	return (
+		m.includes('422') &&
+		(m.includes('does not exist or is not accessible') ||
+			m.includes('not accessible to the parent installation'))
+	);
 }
 
 /**
- * List repositories accessible to the installation.
+ * Exchange an installation ID for a short-lived access token.
+ * Optionally pass `repositories: ['owner/repo']` to narrow the token; if GitHub returns 422
+ * (repo string not on this installation or casing mismatch), falls back to an unscoped token.
+ */
+export async function getInstallationToken(
+	installationId: number,
+	opts?: InstallationTokenOptions
+): Promise<{ token: string; expires_at: string }> {
+	const jwt = createAppJwt();
+	const repos = opts?.repositories?.map((s) => s.trim()).filter(Boolean) ?? [];
+
+	const postAccessToken = (body: string | undefined) =>
+		ghFetch(`/app/installations/${installationId}/access_tokens`, {
+			method: 'POST',
+			headers: {
+				Authorization: `Bearer ${jwt}`,
+				...(body ? { 'Content-Type': 'application/json' } : {})
+			},
+			body
+		}) as Promise<{ token: string; expires_at: string }>;
+
+	if (repos.length > 0) {
+		try {
+			return await postAccessToken(JSON.stringify({ repositories: repos }));
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			if (isRepoScopeToken422(msg)) {
+				return await postAccessToken(undefined);
+			}
+			throw e;
+		}
+	}
+
+	return await postAccessToken(undefined);
+}
+
+/**
+ * Installation ID for **this** GitHub App on the given repository (JWT as the app).
+ * Use to fix a stored `installation_id` that points at another account’s install of the same app.
+ */
+export async function fetchRepositoryInstallationId(
+	owner: string,
+	repo: string
+): Promise<number | null> {
+	const jwt = createAppJwt();
+	const o = encodeURIComponent(owner.trim());
+	const r = encodeURIComponent(repo.trim());
+	try {
+		const data = (await ghFetch(`/repos/${o}/${r}/installation`, {
+			headers: { Authorization: `Bearer ${jwt}` }
+		})) as { id?: number };
+		return typeof data?.id === 'number' ? data.id : null;
+	} catch (e) {
+		const m = e instanceof Error ? e.message : String(e);
+		if (/\b404\b/.test(m)) return null;
+		throw e;
+	}
+}
+
+function mapInstallationRepo(r: {
+	id: number;
+	full_name: string;
+	name: string;
+	owner: { login: string };
+}): { id: number; full_name: string; name: string; owner: { login: string } } {
+	return {
+		id: r.id,
+		full_name: r.full_name,
+		name: r.name,
+		owner: { login: r.owner?.login ?? '' }
+	};
+}
+
+/**
+ * List repositories accessible to the installation (all pages; GitHub paginates at 100).
  */
 export async function listInstallationRepos(
 	token: string
 ): Promise<{ id: number; full_name: string; name: string; owner: { login: string } }[]> {
-	const res = (await ghFetch('/installation/repositories', {
-		headers: { Authorization: `token ${token}` }
-	})) as { repositories: any[] };
-	return res.repositories ?? [];
+	const headers = installationAuthHeaders(token);
+	const out: { id: number; full_name: string; name: string; owner: { login: string } }[] = [];
+	for (let page = 1; page <= 50; page++) {
+		const res = (await ghFetch(`/installation/repositories?per_page=100&page=${page}`, {
+			headers
+		})) as { repositories: any[] };
+		const chunk = res.repositories ?? [];
+		for (const r of chunk) {
+			out.push(mapInstallationRepo(r));
+		}
+		if (chunk.length < 100) break;
+	}
+	return out;
 }
 
 /**
@@ -51,7 +139,7 @@ export async function fetchAllBranches(
 	const out: { name: string; commit: { sha: string; message?: string } }[] = [];
 	for (let page = 1; page <= maxPages; page++) {
 		const branches = (await ghFetch(`/repos/${o}/${r}/branches?per_page=100&page=${page}`, {
-			headers: { Authorization: `token ${token}` }
+			headers: installationAuthHeaders(token)
 		})) as any[];
 		if (!branches.length) break;
 		for (const b of branches) {
@@ -90,7 +178,7 @@ export async function fetchAllPullRequests(
 	for (let page = 1; page <= maxPages; page++) {
 		const chunk = (await ghFetch(
 			`/repos/${o}/${r}/pulls?state=${state}&per_page=100&sort=updated&page=${page}`,
-			{ headers: { Authorization: `token ${token}` } }
+			{ headers: installationAuthHeaders(token) }
 		)) as any[];
 		if (!chunk.length) break;
 		all.push(...chunk);
@@ -111,7 +199,7 @@ export async function fetchCommits(
 	const o = encodeURIComponent(owner);
 	const r = encodeURIComponent(repo);
 	return (await ghFetch(`/repos/${o}/${r}/commits?per_page=${perPage}`, {
-		headers: { Authorization: `token ${token}` }
+		headers: installationAuthHeaders(token)
 	})) as any[];
 }
 
@@ -127,7 +215,7 @@ export async function fetchAllCommits(
 	const all: any[] = [];
 	for (let page = 1; page <= maxPages; page++) {
 		const chunk = (await ghFetch(`/repos/${o}/${r}/commits?per_page=100&page=${page}`, {
-			headers: { Authorization: `token ${token}` }
+			headers: installationAuthHeaders(token)
 		})) as any[];
 		if (!chunk.length) break;
 		all.push(...chunk);
@@ -148,7 +236,7 @@ export async function fetchWorkflowRuns(
 	const o = encodeURIComponent(owner);
 	const r = encodeURIComponent(repo);
 	const res = (await ghFetch(`/repos/${o}/${r}/actions/runs?per_page=${perPage}`, {
-		headers: { Authorization: `token ${token}` }
+		headers: installationAuthHeaders(token)
 	})) as { workflow_runs: any[] };
 	return res.workflow_runs ?? [];
 }
@@ -164,7 +252,7 @@ export async function fetchAllWorkflowRuns(
 	const all: any[] = [];
 	for (let page = 1; page <= maxPages; page++) {
 		const res = (await ghFetch(`/repos/${o}/${r}/actions/runs?per_page=100&page=${page}`, {
-			headers: { Authorization: `token ${token}` }
+			headers: installationAuthHeaders(token)
 		})) as { workflow_runs: any[] };
 		const chunk = res.workflow_runs ?? [];
 		if (!chunk.length) break;
@@ -186,7 +274,7 @@ export async function fetchDeployments(
 	const o = encodeURIComponent(owner);
 	const r = encodeURIComponent(repo);
 	return (await ghFetch(`/repos/${o}/${r}/deployments?per_page=${perPage}`, {
-		headers: { Authorization: `token ${token}` }
+		headers: installationAuthHeaders(token)
 	})) as any[];
 }
 
@@ -201,7 +289,7 @@ export async function fetchAllDeployments(
 	const all: any[] = [];
 	for (let page = 1; page <= maxPages; page++) {
 		const chunk = (await ghFetch(`/repos/${o}/${r}/deployments?per_page=100&page=${page}`, {
-			headers: { Authorization: `token ${token}` }
+			headers: installationAuthHeaders(token)
 		})) as any[];
 		if (!chunk.length) break;
 		all.push(...chunk);
@@ -223,8 +311,22 @@ export async function fetchDeploymentStatuses(
 	const r = encodeURIComponent(repo);
 	return (await ghFetch(
 		`/repos/${o}/${r}/deployments/${deploymentId}/statuses?per_page=10`,
-		{ headers: { Authorization: `token ${token}` } }
+		{ headers: installationAuthHeaders(token) }
 	)) as any[];
+}
+
+function formatGithubApiErrorBody(status: number, text: string): string {
+	let parsed: string | undefined;
+	try {
+		const j = JSON.parse(text) as { message?: string };
+		if (typeof j?.message === 'string' && j.message.trim()) parsed = j.message.trim();
+	} catch {
+		/* ignore */
+	}
+	if (parsed) return `GitHub API ${status}: ${parsed}`;
+	const t = text.trim();
+	if (t) return `GitHub API ${status}: ${t.slice(0, 500)}${t.length > 500 ? '…' : ''}`;
+	return `GitHub API ${status}`;
 }
 
 async function ghFetch(path: string, init: RequestInit): Promise<unknown> {
@@ -234,12 +336,13 @@ async function ghFetch(path: string, init: RequestInit): Promise<unknown> {
 		headers: {
 			Accept: 'application/vnd.github+json',
 			'X-GitHub-Api-Version': '2022-11-28',
+			'User-Agent': 'MintMVP-Console/1.0 (GitHub App)',
 			...init.headers
 		}
 	});
 	if (!res.ok) {
 		const text = await res.text().catch(() => '');
-		throw new Error(`GitHub API ${res.status}: ${text}`);
+		throw new Error(formatGithubApiErrorBody(res.status, text));
 	}
 	return res.json();
 }

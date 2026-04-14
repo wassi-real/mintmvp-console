@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { InstallationTokenOptions } from './api';
 import {
 	getInstallationToken,
 	fetchAllBranches,
@@ -15,7 +16,14 @@ import {
  */
 export async function ensureToken(
 	supabase: SupabaseClient,
-	integration: { id: string; installation_id: number; access_token: string; token_expires_at: string | null }
+	integration: {
+		id: string;
+		installation_id: number;
+		access_token: string;
+		token_expires_at: string | null;
+		repo_owner?: string | null;
+		repo_name?: string | null;
+	}
 ): Promise<string> {
 	if (
 		integration.access_token &&
@@ -25,7 +33,15 @@ export async function ensureToken(
 		return integration.access_token;
 	}
 
-	const { token, expires_at } = await getInstallationToken(integration.installation_id);
+	const ro = (integration.repo_owner ?? '').trim();
+	const rn = (integration.repo_name ?? '').trim();
+	const mintOpts: InstallationTokenOptions | undefined =
+		ro && rn ? { repositories: [`${ro}/${rn}`] } : undefined;
+
+	const { token, expires_at } = await getInstallationToken(
+		integration.installation_id,
+		mintOpts
+	);
 	const { error } = await (supabase.from('project_integrations_github') as any)
 		.update({ access_token: token, token_expires_at: expires_at })
 		.eq('id', integration.id);

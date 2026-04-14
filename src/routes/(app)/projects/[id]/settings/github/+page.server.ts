@@ -4,7 +4,11 @@ import { fail } from '@sveltejs/kit';
 import { logActivity, getActorName } from '$lib/server/activity';
 import { hasGitHubAppEnv, listInstallationRepos } from '$lib/server/github';
 import { createServiceRoleClient } from '$lib/supabase/server';
-import { githubSyncForProject, isGitHubIntegrationAccessError } from '$lib/server/github/run-sync';
+import {
+	formatGitHubPermissionHint,
+	githubSyncForProject,
+	isGitHubIntegrationAccessError
+} from '$lib/server/github/run-sync';
 import { githubManualSyncAction } from '$lib/server/github/sync-action';
 import { isProjectStaff } from '$lib/server/roles';
 
@@ -66,8 +70,6 @@ export const actions: Actions = {
 		const installation_id = parseInt(form.get('installation_id') as string, 10);
 		const repo_owner = (form.get('repo_owner') as string)?.trim();
 		const repo_name = (form.get('repo_name') as string)?.trim();
-		const token = (form.get('token') as string)?.trim();
-		const expires_at = (form.get('expires_at') as string)?.trim();
 
 		if (!installation_id || !repo_owner || !repo_name) {
 			return fail(400, { error: 'Missing required fields' });
@@ -82,14 +84,16 @@ export const actions: Actions = {
 			});
 		}
 
+		// Do not persist the connect-step token: always mint via `ensureToken` with
+		// `repositories: ['owner/repo']` so GitHub scopes the installation token to this repo.
 		const { error } = await (admin.from('project_integrations_github') as any).upsert(
 			{
 				project_id: params.id,
 				installation_id,
 				repo_owner,
 				repo_name,
-				access_token: token || '',
-				token_expires_at: expires_at || null
+				access_token: '',
+				token_expires_at: null
 			},
 			{ onConflict: 'project_id' }
 		);
@@ -112,16 +116,14 @@ export const actions: Actions = {
 			const sync = await githubSyncForProject(locals, params.id, { force: true });
 			if (sync.ok && sync.counts) syncCounts = sync.counts;
 			if (!sync.ok && sync.reason === 'github_forbidden') {
-				permissionWarning =
-					'GitHub returned 403: this installation cannot read the repository. On your GitHub App, set **Repository permissions → Contents** to *Read-only*, then open **github.com/settings/installations**, choose your app → **Configure**, and ensure **this repository** is selected. Save and accept any permission update on GitHub.';
+				permissionWarning = formatGitHubPermissionHint(sync.message);
 			} else if (!sync.ok && sync.reason !== 'no_service_role') {
 				console.warn('[github] post-connect sync', sync);
 			}
 		} catch (e) {
 			const msg = e instanceof Error ? e.message : String(e);
 			if (isGitHubIntegrationAccessError(msg)) {
-				permissionWarning =
-					'GitHub returned 403: this installation cannot read the repository. Grant **Contents: Read** on the GitHub App and include this repo in the installation’s repository access.';
+				permissionWarning = formatGitHubPermissionHint(msg);
 			} else {
 				console.warn('[github] post-connect sync failed', e);
 			}

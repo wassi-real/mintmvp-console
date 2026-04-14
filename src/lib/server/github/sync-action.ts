@@ -2,7 +2,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import { fail } from '@sveltejs/kit';
 import { logActivity, getActorName } from '$lib/server/activity';
 import { isProjectStaff } from '$lib/server/roles';
-import { githubSyncForProject } from './run-sync';
+import { formatGitHubPermissionHint, githubSyncForProject } from './run-sync';
 
 type Locals = {
 	supabase: SupabaseClient;
@@ -30,10 +30,7 @@ export async function githubManualSyncAction(locals: Locals, projectId: string) 
 		const sync = await githubSyncForProject(locals, projectId, { force: true });
 		if (!sync.ok) {
 			if (sync.reason === 'github_forbidden') {
-				return fail(403, {
-					error:
-						'GitHub blocked access (403). On the GitHub App, set repository permission Contents to Read-only, and ensure this repository is included on the installation (github.com/settings/installations).'
-				});
+				return fail(403, { error: formatGitHubPermissionHint(sync.message) });
 			}
 			if (sync.reason === 'no_service_role') {
 				return fail(500, { error: 'Server is missing SUPABASE_SERVICE_ROLE_KEY for GitHub sync.' });
