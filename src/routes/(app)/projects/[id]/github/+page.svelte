@@ -1,5 +1,7 @@
 <script lang="ts">
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import {
 		Github,
 		GitBranch,
@@ -7,10 +9,28 @@
 		GitCommitHorizontal,
 		ExternalLink,
 		Settings2,
-		AlertTriangle
+		AlertTriangle,
+		RefreshCw,
+		Loader
 	} from 'lucide-svelte';
 
-	let { data } = $props();
+	let { data, form } = $props();
+
+	let syncSubmitting = $state(false);
+
+	const syncCounts = $derived.by(() => {
+		const f = form;
+		if (f == null || typeof f !== 'object') return null;
+		const sc = (f as Record<string, unknown>).syncCounts;
+		if (sc == null || typeof sc !== 'object' || Array.isArray(sc)) return null;
+		return sc as Record<string, number>;
+	});
+	const syncFormError = $derived.by(() => {
+		const f = form;
+		if (f == null || typeof f !== 'object') return '';
+		const err = (f as Record<string, unknown>).error;
+		return typeof err === 'string' ? err : '';
+	});
 
 	type Tab = 'branches' | 'pull_requests' | 'commits';
 	let activeTab: Tab = $state('branches');
@@ -70,7 +90,7 @@
 				{data.integration.repo_owner}/{data.integration.repo_name}
 			</span>
 		</div>
-		<div class="flex items-center gap-4 text-xs text-muted-foreground">
+		<div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
 			<span>Last sync: {timeAgo(data.integration.last_sync_at)}</span>
 			<a
 				href="https://github.com/{data.integration.repo_owner}/{data.integration.repo_name}"
@@ -80,8 +100,50 @@
 				<ExternalLink size={12} />
 				Open on GitHub
 			</a>
+			{#if data.canSyncGithub}
+				<form
+					method="POST"
+					action="?/sync"
+					class="inline"
+					use:enhance={() => {
+						syncSubmitting = true;
+						return async ({ update }) => {
+							await update();
+							syncSubmitting = false;
+							await invalidateAll();
+						};
+					}}
+				>
+					<button
+						type="submit"
+						disabled={syncSubmitting}
+						class="inline-flex items-center gap-1.5 rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-secondary/80 disabled:opacity-50"
+					>
+						{#if syncSubmitting}
+							<Loader size={14} class="animate-spin" />
+							Syncing…
+						{:else}
+							<RefreshCw size={14} />
+							Sync now
+						{/if}
+					</button>
+				</form>
+			{/if}
 		</div>
 	</div>
+
+	{#if syncFormError}
+		<div class="mt-3 rounded-lg border border-red-900/40 bg-red-950/20 px-4 py-3 text-sm text-red-300">{syncFormError}</div>
+	{/if}
+
+	{#if syncCounts}
+		<div class="mt-3 rounded-lg border border-green-900/40 bg-green-950/20 px-4 py-3 text-sm">
+			<p class="font-semibold text-green-400">Sync complete</p>
+			<p class="mt-1 text-xs text-muted-foreground">
+				{syncCounts.branches} branches · {syncCounts.prs} PRs · {syncCounts.commits} commits · {syncCounts.ciRuns} CI runs
+			</p>
+		</div>
+	{/if}
 
 	<!-- Stats row -->
 	<div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -1,10 +1,13 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import {
 		Github,
 		Link2,
+		RefreshCw,
+		Loader,
 		Unlink,
 		AlertTriangle,
 		CheckCircle2,
@@ -19,6 +22,7 @@
 	let { data, form } = $props();
 
 	let connectSubmitting = $state(false);
+	let syncSubmitting = $state(false);
 	let disconnectOpen = $state(false);
 	let disconnectSubmitting = $state(false);
 
@@ -36,6 +40,9 @@
 		form && typeof (form as any)?.permissionWarning === 'string'
 			? ((form as any).permissionWarning as string)
 			: undefined
+	);
+	const syncFormError = $derived(
+		form && typeof (form as { error?: string })?.error === 'string' ? (form as { error: string }).error : ''
 	);
 
 	function timeAgo(d: string | null) {
@@ -125,6 +132,12 @@
 				</div>
 			</div>
 
+			{#if syncFormError}
+				<div class="mt-4 rounded-lg border border-red-900/40 bg-red-950/20 px-4 py-3 text-sm text-red-300">
+					{syncFormError}
+				</div>
+			{/if}
+
 			{#if syncCounts}
 				<div
 					class="mt-4 rounded-lg border border-green-900/40 bg-green-950/20 px-4 py-3 text-sm"
@@ -142,16 +155,45 @@
 
 			<div class="mt-5 space-y-4">
 				<p class="text-sm text-muted-foreground">
-					Branches, commits, and CI data are pulled from GitHub automatically about every five minutes while you browse this project.
+					Branches, commits, and CI data refresh automatically about every five minutes while you browse this project. Use
+					<strong class="text-foreground">Sync now</strong> to pull immediately.
 				</p>
-				<button
-					type="button"
-					onclick={() => (disconnectOpen = true)}
-					class="inline-flex items-center gap-2 rounded-lg bg-red-900/30 px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-900/50"
-				>
-					<Unlink size={16} />
-					Disconnect
-				</button>
+				<div class="flex flex-wrap gap-3">
+					<form
+						method="POST"
+						action="?/sync"
+						use:enhance={() => {
+							syncSubmitting = true;
+							return async ({ update }) => {
+								await update();
+								syncSubmitting = false;
+								await invalidateAll();
+							};
+						}}
+					>
+						<button
+							type="submit"
+							disabled={syncSubmitting}
+							class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+						>
+							{#if syncSubmitting}
+								<Loader size={16} class="animate-spin" />
+								Syncing…
+							{:else}
+								<RefreshCw size={16} />
+								Sync now
+							{/if}
+						</button>
+					</form>
+					<button
+						type="button"
+						onclick={() => (disconnectOpen = true)}
+						class="inline-flex items-center gap-2 rounded-lg bg-red-900/30 px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-900/50"
+					>
+						<Unlink size={16} />
+						Disconnect
+					</button>
+				</div>
 			</div>
 		</div>
 

@@ -1,5 +1,7 @@
-import type { PageServerLoad } from './$types';
+import type { PageServerLoad, Actions } from './$types';
 import type { Tables } from '$lib/supabase/types';
+import { isProjectStaff } from '$lib/server/roles';
+import { githubManualSyncAction } from '$lib/server/github/sync-action';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const [
@@ -31,10 +33,19 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			.limit(500)
 	]);
 
+	const canSyncGithub =
+		Boolean(locals.session?.user?.id) &&
+		(await isProjectStaff(locals.supabase, locals.session!.user.id));
+
 	return {
 		integration: integration as Tables<'project_integrations_github'> | null,
 		branches: (branches ?? []) as Tables<'github_branches'>[],
 		pullRequests: (pullRequests ?? []) as Tables<'github_pull_requests'>[],
-		commits: (commits ?? []) as Tables<'github_commits'>[]
+		commits: (commits ?? []) as Tables<'github_commits'>[],
+		canSyncGithub
 	};
+};
+
+export const actions: Actions = {
+	sync: async ({ locals, params }) => githubManualSyncAction(locals, params.id)
 };

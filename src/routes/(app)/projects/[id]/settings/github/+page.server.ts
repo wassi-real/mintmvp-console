@@ -5,6 +5,7 @@ import { logActivity, getActorName } from '$lib/server/activity';
 import { hasGitHubAppEnv, listInstallationRepos } from '$lib/server/github';
 import { createServiceRoleClient } from '$lib/supabase/server';
 import { githubSyncForProject, isGitHubIntegrationAccessError } from '$lib/server/github/run-sync';
+import { githubManualSyncAction } from '$lib/server/github/sync-action';
 import { isProjectStaff } from '$lib/server/roles';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -155,5 +156,7 @@ export const actions: Actions = {
 		await logActivity(locals.supabase, params.id, 'GitHub integration disconnected', getActorName(locals.session!));
 
 		return { success: true, disconnected: true };
-	}
+	},
+
+	sync: async ({ locals, params }) => githubManualSyncAction(locals, params.id)
 };
