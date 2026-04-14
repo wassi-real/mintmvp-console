@@ -1,11 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
 	getInstallationToken,
-	fetchBranches,
-	fetchPullRequests,
-	fetchCommits,
-	fetchWorkflowRuns,
-	fetchDeployments,
+	fetchAllBranches,
+	fetchAllPullRequests,
+	fetchAllCommits,
+	fetchAllWorkflowRuns,
+	fetchAllDeployments,
 	fetchDeploymentStatuses
 } from './api';
 
@@ -26,11 +26,23 @@ export async function ensureToken(
 	}
 
 	const { token, expires_at } = await getInstallationToken(integration.installation_id);
-	await (supabase.from('project_integrations_github') as any)
+	const { error } = await (supabase.from('project_integrations_github') as any)
 		.update({ access_token: token, token_expires_at: expires_at })
 		.eq('id', integration.id);
+	if (error) throw new Error(`Could not persist GitHub token: ${error.message}`);
 
 	return token;
+}
+
+async function upsertRows(
+	supabase: SupabaseClient,
+	table: string,
+	rows: Record<string, unknown>[],
+	onConflict: string
+): Promise<void> {
+	if (!rows.length) return;
+	const { error } = await (supabase.from(table) as any).upsert(rows, { onConflict });
+	if (error) throw new Error(`${table}: ${error.message}`);
 }
 
 /**
@@ -46,24 +58,44 @@ export async function fullSync(
 ): Promise<{ branches: number; prs: number; commits: number; ciRuns: number; deployments: number }> {
 	const counts = { branches: 0, prs: 0, commits: 0, ciRuns: 0, deployments: 0 };
 
-	const [ghBranches, ghPRs, ghCommits, ghRuns, ghDeploys] = await Promise.all([
-		fetchBranches(token, owner, repo).catch(() => []),
-		fetchPullRequests(token, owner, repo, 'all').catch(() => []),
-		fetchCommits(token, owner, repo, 100).catch(() => []),
-		fetchWorkflowRuns(token, owner, repo, 50).catch(() => []),
-		fetchDeployments(token, owner, repo, 50).catch(() => [])
+	const [bRes, prRes, cRes, rRes, dRes] = await Promise.allSettled([
+		fetchAllBranches(token, owner, repo),
+		fetchAllPullRequests(token, owner, repo, 'all'),
+		fetchAllCommits(token, owner, repo),
+		fetchAllWorkflowRuns(token, owner, repo),
+		fetchAllDeployments(token, owner, repo)
 	]);
+
+	const warn: string[] = [];
+	if (bRes.status === 'rejected') {
+		const msg = bRes.reason instanceof Error ? bRes.reason.message : String(bRes.reason);
+		throw new Error(`GitHub branches: ${msg}`);
+	}
+	if (cRes.status === 'rejected') {
+		const msg = cRes.reason instanceof Error ? cRes.reason.message : String(cRes.reason);
+		throw new Error(`GitHub commits: ${msg}`);
+	}
+	if (prRes.status === 'rejected') warn.push(`pulls: ${prRes.reason}`);
+	if (rRes.status === 'rejected') warn.push(`workflow_runs: ${rRes.reason}`);
+	if (dRes.status === 'rejected') warn.push(`deployments: ${dRes.reason}`);
+	if (warn.length) console.warn('[github fullSync] non-fatal fetch failures', warn.join('; '));
+
+	const ghBranches = bRes.value;
+	const ghPRs = prRes.status === 'fulfilled' ? prRes.value : [];
+	const ghCommits = cRes.value;
+	const ghRuns = rRes.status === 'fulfilled' ? rRes.value : [];
+	const ghDeploys = dRes.status === 'fulfilled' ? dRes.value : [];
 
 	if (ghBranches.length) {
 		const rows = ghBranches.map((b) => ({
 			project_id: projectId,
 			name: b.name,
 			last_commit_sha: b.commit.sha,
-			last_commit_message: b.commit.message ?? '',
+			last_commit_message: (b.commit.message ?? '').slice(0, 2000),
 			updated_at: new Date().toISOString(),
 			status: 'active'
 		}));
-		await (supabase.from('github_branches') as any).upsert(rows, { onConflict: 'project_id,name' });
+		await upsertRows(supabase, 'github_branches', rows, 'project_id,name');
 		counts.branches = rows.length;
 	}
 
@@ -78,7 +110,7 @@ export async function fullSync(
 			created_at: pr.created_at,
 			merged_at: pr.merged_at ?? null
 		}));
-		await (supabase.from('github_pull_requests') as any).upsert(rows, { onConflict: 'project_id,gh_number' });
+		await upsertRows(supabase, 'github_pull_requests', rows, 'project_id,gh_number');
 		counts.prs = rows.length;
 	}
 
@@ -91,7 +123,7 @@ export async function fullSync(
 			author: c.commit?.author?.name ?? c.author?.login ?? '',
 			committed_at: c.commit?.author?.date ?? new Date().toISOString()
 		}));
-		await (supabase.from('github_commits') as any).upsert(rows, { onConflict: 'project_id,sha' });
+		await upsertRows(supabase, 'github_commits', rows, 'project_id,sha');
 		counts.commits = rows.length;
 	}
 
@@ -102,10 +134,10 @@ export async function fullSync(
 			workflow_name: r.name ?? '',
 			branch: r.head_branch ?? '',
 			commit_sha: r.head_sha ?? '',
-			status: mapCIStatus(r.conclusion ?? r.status),
+			status: mapCIStatus(r.status, r.conclusion),
 			created_at: r.created_at
 		}));
-		await (supabase.from('github_ci_runs') as any).upsert(rows, { onConflict: 'project_id,gh_run_id' });
+		await upsertRows(supabase, 'github_ci_runs', rows, 'project_id,gh_run_id');
 		counts.ciRuns = rows.length;
 	}
 
@@ -116,7 +148,9 @@ export async function fullSync(
 			try {
 				const statuses = await fetchDeploymentStatuses(token, owner, repo, d.id);
 				if (statuses.length) status = mapDeployStatus(statuses[0].state);
-			} catch { /* keep pending */ }
+			} catch {
+				/* keep pending */
+			}
 			deployRows.push({
 				project_id: projectId,
 				gh_deploy_id: d.id,
@@ -127,29 +161,32 @@ export async function fullSync(
 			});
 		}
 		if (deployRows.length) {
-			await (supabase.from('github_deployments') as any).upsert(deployRows, { onConflict: 'project_id,gh_deploy_id' });
+			await upsertRows(supabase, 'github_deployments', deployRows, 'project_id,gh_deploy_id');
 			counts.deployments = deployRows.length;
 		}
 	}
 
-	await (supabase.from('project_integrations_github') as any)
+	const { error: tsErr } = await (supabase.from('project_integrations_github') as any)
 		.update({ last_sync_at: new Date().toISOString() })
 		.eq('project_id', projectId);
+	if (tsErr) console.warn('[github fullSync] last_sync_at update', tsErr);
 
 	return counts;
 }
 
-function mapCIStatus(raw: string | null): string {
-	if (!raw) return 'pending';
-	const m: Record<string, string> = {
-		success: 'success',
-		failure: 'failure',
-		cancelled: 'cancelled',
-		in_progress: 'in_progress',
-		queued: 'pending',
-		completed: 'success'
-	};
-	return m[raw] ?? 'pending';
+function mapCIStatus(status: string | null, conclusion: string | null): string {
+	const s = (status ?? '').toLowerCase();
+	const c = (conclusion ?? '').toLowerCase();
+	if (s === 'queued' || s === 'waiting' || s === 'pending' || s === 'requested') return 'pending';
+	if (s === 'in_progress') return 'in_progress';
+	if (s === 'completed') {
+		if (c === 'success') return 'success';
+		if (c === 'failure') return 'failure';
+		if (c === 'cancelled') return 'cancelled';
+		if (c === 'skipped' || c === 'neutral') return 'success';
+		return 'pending';
+	}
+	return 'pending';
 }
 
 function mapDeployStatus(state: string): string {

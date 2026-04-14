@@ -238,7 +238,7 @@
 					<Github size={20} class="text-foreground" />
 					<div>
 						<p class="text-sm font-semibold text-foreground">GitHub</p>
-						<p class="text-xs text-muted-foreground">Connect repo, sync branches, PRs, CI, and deployments</p>
+						<p class="text-xs text-muted-foreground">Connect repo; sync branches, PRs, commits, and CI</p>
 					</div>
 				</div>
 				<ChevronRight size={16} class="text-muted-foreground" />
@@ -254,7 +254,7 @@
 				<div>
 					<h3 class="text-base font-semibold text-foreground">Delete this project</h3>
 					<p class="mt-1 text-sm text-muted-foreground">
-						Permanently deletes <strong class="text-foreground">{data.project.name}</strong> and all its data — specs, tasks, tests, deployments, incidents, reports, and activity. This action cannot be undone.
+						Permanently deletes <strong class="text-foreground">{data.project.name}</strong> and all its data — specs, tasks, tests, incidents, reports, and activity. This action cannot be undone.
 					</p>
 				</div>
 				<button
@@ -313,7 +313,7 @@
 				<div class="p-6 space-y-4">
 					<div class="rounded-lg border border-amber-900/40 bg-amber-950/20 px-4 py-3">
 						<p class="text-sm text-amber-300">
-							<strong>Warning:</strong> All specs, tasks, tests, deployments, incidents, reports, codebase data, environments, and activity will be permanently deleted.
+							<strong>Warning:</strong> All specs, tasks, tests, incidents, reports, GitHub-linked sync data, environments, and activity will be permanently deleted.
 						</p>
 					</div>
 

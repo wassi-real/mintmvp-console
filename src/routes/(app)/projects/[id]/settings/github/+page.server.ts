@@ -2,7 +2,10 @@ import type { PageServerLoad, Actions } from './$types';
 import type { Tables } from '$lib/supabase/types';
 import { fail } from '@sveltejs/kit';
 import { logActivity, getActorName } from '$lib/server/activity';
-import { hasGitHubAppEnv, ensureToken, listInstallationRepos, fullSync } from '$lib/server/github';
+import { hasGitHubAppEnv, listInstallationRepos } from '$lib/server/github';
+import { createServiceRoleClient } from '$lib/supabase/server';
+import { githubSyncForProject, isGitHubIntegrationAccessError } from '$lib/server/github/run-sync';
+import { isProjectStaff } from '$lib/server/roles';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const { data: integration } = await locals.supabase
@@ -19,6 +22,11 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 
 export const actions: Actions = {
 	connect: async ({ request, locals, params }) => {
+		if (!locals.session?.user?.id) return fail(401, { error: 'Unauthorized' });
+		if (!(await isProjectStaff(locals.supabase, locals.session.user.id))) {
+			return fail(403, { error: 'Only owners and developers can connect GitHub.' });
+		}
+
 		const form = await request.formData();
 		const installation_id = parseInt(form.get('installation_id') as string, 10);
 
@@ -48,6 +56,11 @@ export const actions: Actions = {
 	},
 
 	selectRepo: async ({ request, locals, params }) => {
+		if (!locals.session?.user?.id) return fail(401, { error: 'Unauthorized' });
+		if (!(await isProjectStaff(locals.supabase, locals.session.user.id))) {
+			return fail(403, { error: 'Only owners and developers can connect GitHub.' });
+		}
+
 		const form = await request.formData();
 		const installation_id = parseInt(form.get('installation_id') as string, 10);
 		const repo_owner = (form.get('repo_owner') as string)?.trim();
@@ -59,7 +72,16 @@ export const actions: Actions = {
 			return fail(400, { error: 'Missing required fields' });
 		}
 
-		const { error } = await (locals.supabase.from('project_integrations_github') as any).upsert(
+		let admin;
+		try {
+			admin = createServiceRoleClient();
+		} catch (e) {
+			return fail(500, {
+				error: e instanceof Error ? e.message : 'Server is missing SUPABASE_SERVICE_ROLE_KEY for GitHub sync.'
+			});
+		}
+
+		const { error } = await (admin.from('project_integrations_github') as any).upsert(
 			{
 				project_id: params.id,
 				installation_id,
@@ -81,51 +103,53 @@ export const actions: Actions = {
 			{ installation_id, repo_owner, repo_name }
 		);
 
-		return { success: true };
-	},
-
-	sync: async ({ locals, params }) => {
-		const { data: integration } = await locals.supabase
-			.from('project_integrations_github')
-			.select('*')
-			.eq('project_id', params.id)
-			.maybeSingle();
-
-		if (!integration) return fail(400, { error: 'No GitHub integration configured' });
-
+		let syncCounts:
+			| { branches: number; prs: number; commits: number; ciRuns: number; deployments: number }
+			| undefined;
+		let permissionWarning: string | undefined;
 		try {
-			const token = await ensureToken(locals.supabase, integration as any);
-			const counts = await fullSync(
-				locals.supabase,
-				params.id,
-				token,
-				(integration as any).repo_owner,
-				(integration as any).repo_name
-			);
-
-			await logActivity(
-				locals.supabase,
-				params.id,
-				'GitHub sync completed',
-				getActorName(locals.session!),
-				counts
-			);
-
-			return { success: true, syncCounts: counts };
+			const sync = await githubSyncForProject(locals, params.id, { force: true });
+			if (sync.ok && sync.counts) syncCounts = sync.counts;
+			if (!sync.ok && sync.reason === 'github_forbidden') {
+				permissionWarning =
+					'GitHub returned 403: this installation cannot read the repository. On your GitHub App, set **Repository permissions → Contents** to *Read-only*, then open **github.com/settings/installations**, choose your app → **Configure**, and ensure **this repository** is selected. Save and accept any permission update on GitHub.';
+			} else if (!sync.ok && sync.reason !== 'no_service_role') {
+				console.warn('[github] post-connect sync', sync);
+			}
 		} catch (e) {
-			return fail(500, { error: `Sync failed: ${e instanceof Error ? e.message : 'unknown'}` });
+			const msg = e instanceof Error ? e.message : String(e);
+			if (isGitHubIntegrationAccessError(msg)) {
+				permissionWarning =
+					'GitHub returned 403: this installation cannot read the repository. Grant **Contents: Read** on the GitHub App and include this repo in the installation’s repository access.';
+			} else {
+				console.warn('[github] post-connect sync failed', e);
+			}
 		}
+
+		return { success: true, syncCounts, permissionWarning };
 	},
 
 	disconnect: async ({ locals, params }) => {
-		const { error } = await (locals.supabase.from('project_integrations_github') as any)
-			.delete()
-			.eq('project_id', params.id);
+		if (!locals.session?.user?.id) return fail(401, { error: 'Unauthorized' });
+		if (!(await isProjectStaff(locals.supabase, locals.session.user.id))) {
+			return fail(403, { error: 'Only owners and developers can disconnect GitHub.' });
+		}
+
+		let admin;
+		try {
+			admin = createServiceRoleClient();
+		} catch (e) {
+			return fail(500, {
+				error: e instanceof Error ? e.message : 'Server is missing SUPABASE_SERVICE_ROLE_KEY.'
+			});
+		}
+
+		const { error } = await (admin.from('project_integrations_github') as any).delete().eq('project_id', params.id);
 
 		if (error) return fail(500, { error: error.message });
 
 		for (const table of ['github_branches', 'github_pull_requests', 'github_commits', 'github_ci_runs', 'github_deployments']) {
-			await (locals.supabase.from(table) as any).delete().eq('project_id', params.id);
+			await (admin.from(table) as any).delete().eq('project_id', params.id);
 		}
 
 		await logActivity(locals.supabase, params.id, 'GitHub integration disconnected', getActorName(locals.session!));

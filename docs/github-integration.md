@@ -61,18 +61,27 @@ Supabase variables (`PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE
 1. Sign in to the console and open a **project**.
 2. Go to **Settings** → under **Integrations**, open **GitHub** (URL shape: `/projects/<project-id>/settings/github`).
 3. Enter the **Installation ID** and submit **Connect**.
-4. Pick the **repository** to attach to this project and confirm.
-5. Use **Sync Now** to run an initial backfill (branches, PRs, commits, CI runs, deployments).
+4. Pick the **repository** to attach to this project and confirm. The console pulls an initial backfill automatically; ongoing sync runs about every five minutes while you use the project.
 
 ### 5. Verify webhooks (production)
 
 1. Ensure your deployed site URL matches the **Webhook URL** in the GitHub App.
 2. In GitHub → App → **Advanced** (or **Recent Deliveries**), trigger a push or PR and confirm deliveries return **200**.
-3. In the console, open **GitHub** and **CI / CD** under the project; data should update after webhooks or the next **Sync Now**.
+3. In the console, open **GitHub** and **CI / CD** under the project; data should update after webhooks or the next automatic sync.
 
-### 6. Apply database migrations
+### 6. Public monitoring status (optional)
 
-If you have not already, run Supabase migrations so tables such as `project_integrations_github` and `github_*` exist (e.g. `supabase db push` or your hosted migration process).
+Owners and developers can publish a **read-only** status page for stakeholders:
+
+1. Open the project → **Monitoring**.
+2. Use **Deploy public status page**. The console stores a random token and shows a URL of the form `https://<your-host>/status/<token>`.
+3. Anyone with that link can see the project name, health summary, and open incident count **without signing in**. The SvelteKit server loads data with **`SUPABASE_SERVICE_ROLE_KEY`** (same as other privileged server paths); the key is never sent to the browser.
+
+You can **Stop publishing**, **Publish again**, or **New secret link** (rotate token) from the same screen. Requires the `project_monitoring_public` migration to be applied.
+
+### 7. Apply database migrations
+
+If you have not already, run Supabase migrations so tables such as `project_integrations_github`, `github_*`, and `project_monitoring_public` exist (e.g. `supabase db push` or your hosted migration process).
 
 ---
 
@@ -83,3 +92,8 @@ If you have not already, run Supabase migrations so tables such as `project_inte
 - **401 on webhook** — signature mismatch: confirm `GITHUB_WEBHOOK_SECRET` matches GitHub exactly and the raw request body is what GitHub signed (no proxy stripping or re-encoding).
 - **Connect fails with installation error** — wrong Installation ID, app not installed on that org/user, or private key / App ID does not belong to the same app.
 - **Empty data after sync** — token works but repo has no branches/PRs/actions yet, or permissions on the GitHub App are too narrow.
+- **`403` / “Resource not accessible by integration”** (often on **list branches**):
+  1. **GitHub App → Repository permissions**: set **Contents** to **Read-only** (or Read and write). Without Contents read, the installation token cannot list branches or commits.
+  2. **github.com/settings/installations → your app → Configure**: under repository access, ensure **this repository** is included (if you chose “Only select repositories”, add it).
+  3. If you changed permissions after the app was installed, GitHub may show **“Update”** on the installation — accept so the new scopes apply.
+  4. Confirm the **owner/name** in the console matches the repo on GitHub (forks under another account need that account’s installation).

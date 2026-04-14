@@ -3,3 +3,10 @@ export { createAppJwt } from './jwt';
 export { getInstallationToken, listInstallationRepos } from './api';
 export { verifyWebhookSignature } from './webhook';
 export { ensureToken, fullSync } from './sync';
+export { isProjectStaff } from '../roles';
+export {
+	githubSyncForProject,
+	tryGithubAutoSyncFromLayout,
+	isGitHubIntegrationAccessError,
+	GITHUB_SYNC_INTERVAL_MS
+} from './run-sync';

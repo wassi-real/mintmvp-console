@@ -6,7 +6,6 @@
 		FileText,
 		ListTodo,
 		FlaskConical,
-		Rocket,
 		AlertTriangle,
 		Activity,
 		ExternalLink,
@@ -146,13 +145,36 @@
 		</div>
 	</div>
 
-	<!-- Codebase + secondary stats -->
+	<!-- Repository stats (GitHub when connected, else manual codebase tables) -->
 	<div class="mt-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-		<StatCard label="Commits" value={data.stats.commits} icon={GitCommitHorizontal} />
-		<StatCard label="Merged" value={data.stats.commitsMerged} icon={GitCommitHorizontal} variant={data.stats.commitsMerged > 0 ? 'success' : 'default'} />
-		<StatCard label="Branches" value={data.stats.branches} icon={GitBranch} />
-		<StatCard label="Stable" value={data.stats.branchesStable} icon={GitBranch} variant={data.stats.branchesStable > 0 ? 'success' : 'default'} />
+		<StatCard
+			label={data.ghIntegration ? 'Commits (GitHub)' : 'Commits'}
+			value={data.stats.commits}
+			icon={GitCommitHorizontal}
+		/>
+		<StatCard
+			label={data.ghIntegration ? 'Merged PRs' : 'Merged'}
+			value={data.stats.commitsMerged}
+			icon={GitCommitHorizontal}
+			variant={data.stats.commitsMerged > 0 ? 'success' : 'default'}
+		/>
+		<StatCard
+			label={data.ghIntegration ? 'Branches (GitHub)' : 'Branches'}
+			value={data.stats.branches}
+			icon={GitBranch}
+		/>
+		<StatCard
+			label={data.ghIntegration ? 'Active branches' : 'Stable'}
+			value={data.stats.branchesStable}
+			icon={GitBranch}
+			variant={data.stats.branchesStable > 0 ? 'success' : 'default'}
+		/>
 	</div>
+	{#if data.ghIntegration}
+		<p class="mt-2 text-xs text-muted-foreground">
+			Repository stats refresh from GitHub about every five minutes while you use the project.
+		</p>
+	{/if}
 
 	<!-- GitHub stats -->
 	{#if data.ghIntegration}
@@ -168,28 +190,6 @@
 			<span>&middot; Last sync: {timeAgo(data.ghIntegration.last_sync_at)}</span>
 		</div>
 	{/if}
-
-	<!-- Recent Deployments -->
-	<div class="mt-8">
-		<h3 class="mb-4 text-lg font-semibold text-foreground">Recent Deployments</h3>
-		{#if data.recentDeploys.length === 0}
-			<p class="text-sm text-muted-foreground">No deployments yet.</p>
-		{:else}
-			<div class="space-y-2">
-				{#each data.recentDeploys as deploy}
-					<div class="flex flex-col gap-2 rounded-xl border border-border bg-card/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-						<div class="flex flex-wrap items-center gap-3">
-							<Rocket size={18} class="shrink-0 text-muted-foreground" />
-							<span class="text-base font-semibold text-foreground">{deploy.version}</span>
-							<StatusBadge status={deploy.environment} size="sm" />
-							<StatusBadge status={deploy.status} size="sm" />
-						</div>
-						<span class="text-sm text-muted-foreground">{timeAgo(deploy.created_at)}</span>
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</div>
 
 	<!-- Recent Activity -->
 	<div class="mt-8">

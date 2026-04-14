@@ -111,27 +111,6 @@
 				optional: ['title', 'content']
 			},
 			del: { desc: 'Delete a report' }
-		},
-		{
-			id: 'deployments',
-			label: 'Deployments',
-			singular: 'deployment',
-			get: {
-				desc: 'List all deployments',
-				response: '{ "data": [ { id, version, environment, status, notes, ... } ] }'
-			},
-			post: {
-				desc: 'Log a deployment',
-				body: '{ "version": "v1.2.0", "environment": "production", "status": "success" }',
-				required: ['version'],
-				optional: ['environment', 'status', 'notes']
-			},
-			patch: {
-				desc: 'Update a deployment (partial)',
-				body: '{ "status": "failed", "notes": "Rolled back due to errors" }',
-				optional: ['version', 'environment', 'status', 'notes']
-			},
-			del: { desc: 'Delete a deployment' }
 		}
 	];
 

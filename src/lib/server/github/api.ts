@@ -36,13 +36,33 @@ export async function fetchBranches(
 	owner: string,
 	repo: string
 ): Promise<{ name: string; commit: { sha: string; message?: string } }[]> {
-	const branches = (await ghFetch(`/repos/${owner}/${repo}/branches?per_page=100`, {
-		headers: { Authorization: `token ${token}` }
-	})) as any[];
-	return branches.map((b) => ({
-		name: b.name,
-		commit: { sha: b.commit.sha, message: b.commit.commit?.message ?? '' }
-	}));
+	return fetchAllBranches(token, owner, repo, 1);
+}
+
+/** Paginated branch list (GitHub caps 100 per page). */
+export async function fetchAllBranches(
+	token: string,
+	owner: string,
+	repo: string,
+	maxPages = 50
+): Promise<{ name: string; commit: { sha: string; message?: string } }[]> {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	const out: { name: string; commit: { sha: string; message?: string } }[] = [];
+	for (let page = 1; page <= maxPages; page++) {
+		const branches = (await ghFetch(`/repos/${o}/${r}/branches?per_page=100&page=${page}`, {
+			headers: { Authorization: `token ${token}` }
+		})) as any[];
+		if (!branches.length) break;
+		for (const b of branches) {
+			out.push({
+				name: b.name,
+				commit: { sha: b.commit.sha, message: b.commit?.commit?.message ?? '' }
+			});
+		}
+		if (branches.length < 100) break;
+	}
+	return out;
 }
 
 /**
@@ -54,9 +74,29 @@ export async function fetchPullRequests(
 	repo: string,
 	state: 'open' | 'closed' | 'all' = 'all'
 ): Promise<any[]> {
-	return (await ghFetch(`/repos/${owner}/${repo}/pulls?state=${state}&per_page=100&sort=updated`, {
-		headers: { Authorization: `token ${token}` }
-	})) as any[];
+	return fetchAllPullRequests(token, owner, repo, state, 1);
+}
+
+export async function fetchAllPullRequests(
+	token: string,
+	owner: string,
+	repo: string,
+	state: 'open' | 'closed' | 'all' = 'all',
+	maxPages = 30
+): Promise<any[]> {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	const all: any[] = [];
+	for (let page = 1; page <= maxPages; page++) {
+		const chunk = (await ghFetch(
+			`/repos/${o}/${r}/pulls?state=${state}&per_page=100&sort=updated&page=${page}`,
+			{ headers: { Authorization: `token ${token}` } }
+		)) as any[];
+		if (!chunk.length) break;
+		all.push(...chunk);
+		if (chunk.length < 100) break;
+	}
+	return all;
 }
 
 /**
@@ -68,9 +108,32 @@ export async function fetchCommits(
 	repo: string,
 	perPage = 50
 ): Promise<any[]> {
-	return (await ghFetch(`/repos/${owner}/${repo}/commits?per_page=${perPage}`, {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	return (await ghFetch(`/repos/${o}/${r}/commits?per_page=${perPage}`, {
 		headers: { Authorization: `token ${token}` }
 	})) as any[];
+}
+
+/** Recent commits on the default branch, newest first (paginated). */
+export async function fetchAllCommits(
+	token: string,
+	owner: string,
+	repo: string,
+	maxPages = 30
+): Promise<any[]> {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	const all: any[] = [];
+	for (let page = 1; page <= maxPages; page++) {
+		const chunk = (await ghFetch(`/repos/${o}/${r}/commits?per_page=100&page=${page}`, {
+			headers: { Authorization: `token ${token}` }
+		})) as any[];
+		if (!chunk.length) break;
+		all.push(...chunk);
+		if (chunk.length < 100) break;
+	}
+	return all;
 }
 
 /**
@@ -82,10 +145,33 @@ export async function fetchWorkflowRuns(
 	repo: string,
 	perPage = 30
 ): Promise<any[]> {
-	const res = (await ghFetch(`/repos/${owner}/${repo}/actions/runs?per_page=${perPage}`, {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	const res = (await ghFetch(`/repos/${o}/${r}/actions/runs?per_page=${perPage}`, {
 		headers: { Authorization: `token ${token}` }
 	})) as { workflow_runs: any[] };
 	return res.workflow_runs ?? [];
+}
+
+export async function fetchAllWorkflowRuns(
+	token: string,
+	owner: string,
+	repo: string,
+	maxPages = 10
+): Promise<any[]> {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	const all: any[] = [];
+	for (let page = 1; page <= maxPages; page++) {
+		const res = (await ghFetch(`/repos/${o}/${r}/actions/runs?per_page=100&page=${page}`, {
+			headers: { Authorization: `token ${token}` }
+		})) as { workflow_runs: any[] };
+		const chunk = res.workflow_runs ?? [];
+		if (!chunk.length) break;
+		all.push(...chunk);
+		if (chunk.length < 100) break;
+	}
+	return all;
 }
 
 /**
@@ -97,9 +183,31 @@ export async function fetchDeployments(
 	repo: string,
 	perPage = 30
 ): Promise<any[]> {
-	return (await ghFetch(`/repos/${owner}/${repo}/deployments?per_page=${perPage}`, {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	return (await ghFetch(`/repos/${o}/${r}/deployments?per_page=${perPage}`, {
 		headers: { Authorization: `token ${token}` }
 	})) as any[];
+}
+
+export async function fetchAllDeployments(
+	token: string,
+	owner: string,
+	repo: string,
+	maxPages = 10
+): Promise<any[]> {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
+	const all: any[] = [];
+	for (let page = 1; page <= maxPages; page++) {
+		const chunk = (await ghFetch(`/repos/${o}/${r}/deployments?per_page=100&page=${page}`, {
+			headers: { Authorization: `token ${token}` }
+		})) as any[];
+		if (!chunk.length) break;
+		all.push(...chunk);
+		if (chunk.length < 100) break;
+	}
+	return all;
 }
 
 /**
@@ -111,8 +219,10 @@ export async function fetchDeploymentStatuses(
 	repo: string,
 	deploymentId: number
 ): Promise<any[]> {
+	const o = encodeURIComponent(owner);
+	const r = encodeURIComponent(repo);
 	return (await ghFetch(
-		`/repos/${owner}/${repo}/deployments/${deploymentId}/statuses?per_page=10`,
+		`/repos/${o}/${r}/deployments/${deploymentId}/statuses?per_page=10`,
 		{ headers: { Authorization: `token ${token}` } }
 	)) as any[];
 }

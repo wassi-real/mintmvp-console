@@ -28,7 +28,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			.select('*')
 			.eq('project_id', params.id)
 			.order('committed_at', { ascending: false })
-			.limit(100)
+			.limit(500)
 	]);
 
 	return {

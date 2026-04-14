@@ -17,7 +17,6 @@
 
 	const openPRs = $derived(data.pullRequests.filter((p) => p.status === 'open').length);
 	const mergedPRs = $derived(data.pullRequests.filter((p) => p.status === 'merged').length);
-	const activeBranches = $derived(data.branches.filter((b) => b.status === 'active').length);
 
 	function timeAgo(d: string | null) {
 		if (!d) return '--';
@@ -32,6 +31,18 @@
 
 	function shortSha(sha: string) {
 		return sha.slice(0, 7);
+	}
+
+	function branchTreeUrl(branchName: string) {
+		if (!data.integration) return '#';
+		const { repo_owner: o, repo_name: r } = data.integration;
+		return `https://github.com/${o}/${r}/tree/${encodeURIComponent(branchName)}`;
+	}
+
+	function commitPageUrl(fullSha: string) {
+		if (!data.integration) return '#';
+		const { repo_owner: o, repo_name: r } = data.integration;
+		return `https://github.com/${o}/${r}/commit/${fullSha}`;
 	}
 </script>
 
@@ -118,8 +129,10 @@
 		{#if data.branches.length === 0}
 			<div class="mt-12 text-center">
 				<GitBranch size={48} class="mx-auto text-muted-foreground/40" />
-				<p class="mt-4 text-lg font-semibold text-foreground">No branches synced</p>
-				<p class="mt-1 text-sm text-muted-foreground">Run a sync from settings to pull branch data.</p>
+				<p class="mt-4 text-lg font-semibold text-foreground">No branches synced yet</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					Data loads from GitHub automatically about every five minutes. Open this project again shortly, or check Settings → GitHub if the repo is connected.
+				</p>
 			</div>
 		{:else}
 			<!-- Mobile cards -->
@@ -128,7 +141,12 @@
 					<div class="rounded-xl border border-border bg-card p-4">
 						<div class="flex items-start justify-between gap-2">
 							<div class="min-w-0 flex-1">
-								<p class="text-sm font-semibold text-foreground font-mono">{b.name}</p>
+								<a
+									href={branchTreeUrl(b.name)}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-sm font-semibold text-primary hover:underline font-mono"
+								>{b.name}</a>
 								{#if b.last_commit_message}
 									<p class="mt-1 text-xs text-muted-foreground line-clamp-2">{b.last_commit_message}</p>
 								{/if}
@@ -137,7 +155,13 @@
 						</div>
 						<div class="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
 							{#if b.last_commit_sha}
-								<code class="rounded bg-secondary px-1.5 py-0.5 font-mono">{shortSha(b.last_commit_sha)}</code>
+								<a
+									href={commitPageUrl(b.last_commit_sha)}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="rounded bg-secondary px-1.5 py-0.5 font-mono text-primary hover:underline"
+									title={b.last_commit_sha}
+								>{shortSha(b.last_commit_sha)}</a>
 							{/if}
 							<span>{timeAgo(b.updated_at)}</span>
 						</div>
@@ -160,11 +184,24 @@
 					<tbody class="divide-y divide-border">
 						{#each data.branches as b}
 							<tr class="transition-colors hover:bg-secondary/20">
-								<td class="px-4 py-3 font-mono text-sm font-medium text-foreground">{b.name}</td>
+								<td class="px-4 py-3 font-mono text-sm font-medium">
+									<a
+										href={branchTreeUrl(b.name)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="text-primary hover:underline"
+									>{b.name}</a>
+								</td>
 								<td class="max-w-[300px] truncate px-4 py-3 text-sm text-muted-foreground">{b.last_commit_message || '--'}</td>
 								<td class="hidden px-4 py-3 md:table-cell">
 									{#if b.last_commit_sha}
-										<code class="rounded bg-secondary px-1.5 py-0.5 text-xs font-mono text-foreground">{shortSha(b.last_commit_sha)}</code>
+										<a
+											href={commitPageUrl(b.last_commit_sha)}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="rounded bg-secondary px-1.5 py-0.5 text-xs font-mono text-primary hover:underline"
+											title={b.last_commit_sha}
+										>{shortSha(b.last_commit_sha)}</a>
 									{:else}
 										<span class="text-sm text-muted-foreground">--</span>
 									{/if}
@@ -184,7 +221,9 @@
 			<div class="mt-12 text-center">
 				<GitPullRequest size={48} class="mx-auto text-muted-foreground/40" />
 				<p class="mt-4 text-lg font-semibold text-foreground">No pull requests synced</p>
-				<p class="mt-1 text-sm text-muted-foreground">Run a sync from settings to pull PR data.</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					Pull requests sync with the same automatic GitHub refresh. Check back in a few minutes if you just connected the repo.
+				</p>
 			</div>
 		{:else}
 			<!-- Mobile cards -->
@@ -249,7 +288,9 @@
 			<div class="mt-12 text-center">
 				<GitCommitHorizontal size={48} class="mx-auto text-muted-foreground/40" />
 				<p class="mt-4 text-lg font-semibold text-foreground">No commits synced</p>
-				<p class="mt-1 text-sm text-muted-foreground">Run a sync from settings to pull commit data.</p>
+				<p class="mt-1 text-sm text-muted-foreground">
+					Commits on the default branch sync automatically. Large histories may take an extra cycle to fill in.
+				</p>
 			</div>
 		{:else}
 			<!-- Mobile cards -->
@@ -258,7 +299,13 @@
 					<div class="rounded-xl border border-border bg-card p-4">
 						<p class="text-sm font-medium text-foreground line-clamp-2">{c.message}</p>
 						<div class="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-							<code class="rounded bg-secondary px-1.5 py-0.5 font-mono">{shortSha(c.sha)}</code>
+							<a
+								href={commitPageUrl(c.sha)}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="rounded bg-secondary px-1.5 py-0.5 font-mono text-primary hover:underline"
+								title={c.sha}
+							>{shortSha(c.sha)}</a>
 							<span>{c.author}</span>
 							<span>{timeAgo(c.committed_at)}</span>
 						</div>
@@ -282,7 +329,13 @@
 						{#each data.commits as c}
 							<tr class="transition-colors hover:bg-secondary/20">
 								<td class="px-4 py-3">
-									<code class="rounded bg-secondary px-1.5 py-0.5 text-xs font-mono text-foreground">{shortSha(c.sha)}</code>
+									<a
+										href={commitPageUrl(c.sha)}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="rounded bg-secondary px-1.5 py-0.5 text-xs font-mono text-primary hover:underline"
+										title={c.sha}
+									>{shortSha(c.sha)}</a>
 								</td>
 								<td class="max-w-[400px] truncate px-4 py-3 text-sm text-foreground">{c.message}</td>
 								<td class="hidden px-4 py-3 text-sm text-muted-foreground md:table-cell">{c.author}</td>

@@ -4,7 +4,6 @@
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import {
 		Github,
-		RefreshCw,
 		Link2,
 		Unlink,
 		AlertTriangle,
@@ -20,7 +19,6 @@
 	let { data, form } = $props();
 
 	let connectSubmitting = $state(false);
-	let syncSubmitting = $state(false);
 	let disconnectOpen = $state(false);
 	let disconnectSubmitting = $state(false);
 
@@ -34,6 +32,11 @@
 	const formExpiresAt: string = $derived((form as any)?.expires_at ?? '');
 	const formInstallationId: number = $derived((form as any)?.installation_id ?? 0);
 	const syncCounts: any = $derived((form as any)?.syncCounts ?? null);
+	const permissionWarning: string | undefined = $derived(
+		form && typeof (form as any)?.permissionWarning === 'string'
+			? ((form as any).permissionWarning as string)
+			: undefined
+	);
 
 	function timeAgo(d: string | null) {
 		if (!d) return 'Never';
@@ -62,8 +65,7 @@
 		<h1 class="text-2xl font-bold text-foreground">GitHub Integration</h1>
 	</div>
 	<p class="mt-2 text-sm text-muted-foreground">
-		Connect a GitHub repository to automatically sync branches, pull requests, commits, CI runs,
-		and deployments.
+		Connect a GitHub repository to automatically sync branches, pull requests, commits, and CI runs.
 	</p>
 
 	{#if !data.githubConfigured}
@@ -99,6 +101,15 @@
 				<StatusBadge status="active" size="sm" />
 			</div>
 
+			{#if permissionWarning}
+				<div
+					class="mt-4 flex gap-3 rounded-lg border border-amber-600/50 bg-amber-950/25 p-4 text-sm text-foreground"
+				>
+					<AlertTriangle size={20} class="mt-0.5 shrink-0 text-amber-400" />
+					<p>{permissionWarning}</p>
+				</div>
+			{/if}
+
 			<div class="mt-4 grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
 				<div>
 					<p class="text-xs text-muted-foreground">Installation ID</p>
@@ -124,37 +135,19 @@
 						<span class="flex items-center gap-1"><GitPullRequest size={12} />{syncCounts.prs} PRs</span>
 						<span class="flex items-center gap-1"><GitCommitHorizontal size={12} />{syncCounts.commits} commits</span>
 						<span class="flex items-center gap-1"><Play size={12} />{syncCounts.ciRuns} CI runs</span>
-						<span class="flex items-center gap-1"><Rocket size={12} />{syncCounts.deployments} deploys</span>
+						<span class="flex items-center gap-1"><Rocket size={12} />{syncCounts.deployments} GitHub deploy events</span>
 					</div>
 				</div>
 			{/if}
 
-			<div class="mt-5 flex flex-wrap gap-3">
-				<form
-					method="POST"
-					action="?/sync"
-					use:enhance={() => {
-						syncSubmitting = true;
-						return async ({ update }) => {
-							await update();
-							syncSubmitting = false;
-						};
-					}}
-				>
-					<button
-						type="submit"
-						disabled={syncSubmitting}
-						class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-					>
-						<RefreshCw size={16} class={syncSubmitting ? 'animate-spin' : ''} />
-						{syncSubmitting ? 'Syncing…' : 'Sync Now'}
-					</button>
-				</form>
-
+			<div class="mt-5 space-y-4">
+				<p class="text-sm text-muted-foreground">
+					Branches, commits, and CI data are pulled from GitHub automatically about every five minutes while you browse this project.
+				</p>
 				<button
 					type="button"
 					onclick={() => (disconnectOpen = true)}
-					class="flex items-center gap-2 rounded-lg bg-red-900/30 px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-900/50"
+					class="inline-flex items-center gap-2 rounded-lg bg-red-900/30 px-4 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-900/50"
 				>
 					<Unlink size={16} />
 					Disconnect
@@ -180,7 +173,7 @@
 					<AlertTriangle size={24} class="mt-0.5 shrink-0 text-red-400" />
 					<p class="text-sm text-muted-foreground">
 						This will remove the GitHub connection and delete all synced data (branches, PRs,
-						commits, CI runs, deployments). Manual entries are unaffected.
+						commits, CI runs, and related GitHub records). Manual entries are unaffected.
 					</p>
 				</div>
 				<div class="mt-6 flex justify-end gap-3">

@@ -155,24 +155,6 @@
 				optional: ['title', 'content']
 			},
 			del: { desc: 'Delete a report' }
-		},
-		{
-			id: 'deployments',
-			label: 'Deployments',
-			paramName: 'deploymentId',
-			get: { desc: 'List all deployments', response: '{ "data": [ { id, version, environment, status, notes, ... } ] }' },
-			post: {
-				desc: 'Log a deployment',
-				body: '{ "version": "v1.2.0", "environment": "production", "status": "success" }',
-				required: ['version'],
-				optional: ['environment', 'status', 'notes']
-			},
-			patch: {
-				desc: 'Update a deployment (partial)',
-				body: '{ "status": "failed", "notes": "Rolled back due to errors" }',
-				optional: ['version', 'environment', 'status', 'notes']
-			},
-			del: { desc: 'Delete a deployment' }
 		}
 	];
 </script>
@@ -512,8 +494,6 @@
 									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tests</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">type</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">unit</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">integration</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">e2e</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">smoke</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">manual</code></td></tr>
 									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tests</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">pass</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">fail</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">pending</code></td></tr>
 									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Incidents</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">severity</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">low</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">medium</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">high</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">critical</code></td></tr>
-									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Deployments</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">environment</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">development</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">staging</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">production</code></td></tr>
-									<tr><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Deployments</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">pending</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">in_progress</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">success</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">failed</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">rolled_back</code></td></tr>
 								</tbody>
 							</table>
 						</div>

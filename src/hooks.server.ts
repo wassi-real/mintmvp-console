@@ -21,12 +21,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	const isAuthRoute = event.url.pathname.startsWith('/login');
 	const isRootRoute = event.url.pathname === '/';
+	const isPublicMonitoringStatus =
+		event.url.pathname.startsWith('/status/') && event.url.pathname.length > '/status/'.length;
 
 	if (isRootRoute) {
 		throw redirect(303, session ? '/dashboard' : '/login');
 	}
 
-	if (!session && !isAuthRoute) {
+	if (!session && !isAuthRoute && !isPublicMonitoringStatus) {
 		throw redirect(303, '/login');
 	}
 

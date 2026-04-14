@@ -303,7 +303,33 @@ export type Database = {
 					warning_count?: number;
 				};
 			};
-		milestones: {
+			project_monitoring_public: {
+				Row: {
+					id: string;
+					project_id: string;
+					token: string;
+					is_enabled: boolean;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					token: string;
+					is_enabled?: boolean;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					token?: string;
+					is_enabled?: boolean;
+					created_at?: string;
+					updated_at?: string;
+				};
+			};
+			milestones: {
 			Row: {
 				id: string;
 				project_id: string;

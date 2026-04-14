@@ -4,12 +4,10 @@
 		FileText,
 		ListTodo,
 		FlaskConical,
-		Rocket,
 		AlertTriangle,
 		Activity,
 		BookOpen,
 		Terminal,
-		GitCommitHorizontal,
 		Workflow,
 		Globe,
 		HeartPulse,
@@ -45,11 +43,9 @@
 			heading: 'Development',
 			links: [
 				{ path: '/github', label: 'GitHub', icon: Github },
-				{ path: '/code', label: 'Codebase', icon: GitCommitHorizontal },
 				{ path: '/tests', label: 'Tests', icon: FlaskConical },
 				{ path: '/ci', label: 'CI / CD', icon: Play },
-				{ path: '/environments', label: 'Environments', icon: Globe },
-				{ path: '/deployments', label: 'Deployments', icon: Rocket }
+				{ path: '/environments', label: 'Environments', icon: Globe }
 			]
 		},
 		{
