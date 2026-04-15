@@ -5,6 +5,7 @@ import { logActivity, getActorName } from '$lib/server/activity';
 import { createServiceRoleClient } from '$lib/supabase/server';
 import { isProjectStaff } from '$lib/server/roles';
 import { newPublicMonitoringToken } from '$lib/server/public-monitoring';
+import { runMonitoringChecks } from '$lib/server/monitoring-checks';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	let { data: health } = await locals.supabase
@@ -26,6 +27,32 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		.select('id, status')
 		.eq('project_id', params.id);
 
+	const { data: monitoringTargets } = await locals.supabase
+		.from('monitoring_targets')
+		.select('*')
+		.eq('project_id', params.id)
+		.order('sort_order')
+		.order('name');
+
+	const targetIds = (monitoringTargets ?? []).map((t: any) => t.id as string);
+	let recentRuns: Tables<'monitoring_check_runs'>[] = [];
+	if (targetIds.length) {
+		const { data: runs } = await locals.supabase
+			.from('monitoring_check_runs')
+			.select('*')
+			.in('target_id', targetIds)
+			.order('checked_at', { ascending: false })
+			.limit(80);
+		recentRuns = (runs ?? []) as Tables<'monitoring_check_runs'>[];
+	}
+
+	const { data: deploymentObs } = await locals.supabase
+		.from('deployment_observations')
+		.select('*')
+		.eq('project_id', params.id)
+		.order('observed_at', { ascending: false })
+		.limit(40);
+
 	const canManagePublicMonitoring =
 		locals.session?.user?.id != null &&
 		(await isProjectStaff(locals.supabase, locals.session.user.id));
@@ -46,12 +73,19 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		}
 	}
 
+	const canManageTargets =
+		locals.session?.user?.id != null && (await isProjectStaff(locals.supabase, locals.session.user.id));
+
 	return {
 		health: health as Tables<'project_health'> | null,
 		openIncidents: (incidents ?? []).filter((i: any) => i.status === 'open').length,
 		totalIncidents: (incidents ?? []).length,
 		canManagePublicMonitoring,
-		publicStatusPage
+		publicStatusPage,
+		monitoringTargets: (monitoringTargets ?? []) as Tables<'monitoring_targets'>[],
+		recentRuns,
+		deploymentObservations: (deploymentObs ?? []) as Tables<'deployment_observations'>[],
+		canManageTargets
 	};
 };
 
@@ -211,5 +245,136 @@ export const actions: Actions = {
 		if (error) return fail(500, { error: error.message });
 		await logActivity(locals.supabase, params.id, 'Public monitoring status URL rotated', getActorName(locals.session!));
 		return { success: true, publicUrl: `${origin}/status/${token}` };
+	},
+
+	createTarget: async ({ request, locals, params }) => {
+		const gate = requireSession(locals);
+		if (gate) return gate;
+		if (!(await isProjectStaff(locals.supabase, locals.session!.user.id))) {
+			return fail(403, { error: 'Forbidden' });
+		}
+		const form = await request.formData();
+		const name = (form.get('name') as string)?.trim();
+		const url = (form.get('url') as string)?.trim();
+		if (!name || !url) return fail(400, { error: 'Name and URL are required' });
+
+		const { data: maxRow } = await locals.supabase
+			.from('monitoring_targets')
+			.select('sort_order')
+			.eq('project_id', params.id)
+			.order('sort_order', { ascending: false })
+			.limit(1)
+			.maybeSingle();
+		const nextOrder = ((maxRow as any)?.sort_order ?? -1) + 1;
+
+		const { error } = await (locals.supabase.from('monitoring_targets') as any).insert({
+			project_id: params.id,
+			name,
+			url,
+			sort_order: nextOrder
+		});
+		if (error) return fail(500, { error: error.message });
+		await logActivity(locals.supabase, params.id, `Monitoring target added: ${name}`, getActorName(locals.session!));
+		return { success: true };
+	},
+
+	updateTarget: async ({ request, locals, params }) => {
+		const gate = requireSession(locals);
+		if (gate) return gate;
+		if (!(await isProjectStaff(locals.supabase, locals.session!.user.id))) {
+			return fail(403, { error: 'Forbidden' });
+		}
+		const form = await request.formData();
+		const id = form.get('id') as string;
+		const name = (form.get('name') as string)?.trim();
+		const url = (form.get('url') as string)?.trim();
+		const enabled = form.get('enabled') === 'true';
+		if (!id) return fail(400, { error: 'Missing id' });
+		if (!name || !url) return fail(400, { error: 'Name and URL are required' });
+
+		const { error } = await (locals.supabase.from('monitoring_targets') as any)
+			.update({ name, url, enabled })
+			.eq('id', id)
+			.eq('project_id', params.id);
+		if (error) return fail(500, { error: error.message });
+		await logActivity(locals.supabase, params.id, `Monitoring target updated: ${name}`, getActorName(locals.session!));
+		return { success: true };
+	},
+
+	deleteTarget: async ({ request, locals, params }) => {
+		const gate = requireSession(locals);
+		if (gate) return gate;
+		if (!(await isProjectStaff(locals.supabase, locals.session!.user.id))) {
+			return fail(403, { error: 'Forbidden' });
+		}
+		const form = await request.formData();
+		const id = form.get('id') as string;
+		if (!id) return fail(400, { error: 'Missing id' });
+		const { error } = await locals.supabase.from('monitoring_targets').delete().eq('id', id).eq('project_id', params.id);
+		if (error) return fail(500, { error: error.message });
+		await logActivity(locals.supabase, params.id, 'Monitoring target removed', getActorName(locals.session!));
+		return { success: true };
+	},
+
+	importFromEnvironments: async ({ locals, params }) => {
+		const gate = requireSession(locals);
+		if (gate) return gate;
+		if (!(await isProjectStaff(locals.supabase, locals.session!.user.id))) {
+			return fail(403, { error: 'Forbidden' });
+		}
+		const { data: envs } = await locals.supabase.from('project_environments').select('*').eq('project_id', params.id);
+		let n = 0;
+		let order = 0;
+		const { data: maxRow } = await locals.supabase
+			.from('monitoring_targets')
+			.select('sort_order')
+			.eq('project_id', params.id)
+			.order('sort_order', { ascending: false })
+			.limit(1)
+			.maybeSingle();
+		order = ((maxRow as any)?.sort_order ?? -1) + 1;
+
+		for (const e of envs ?? []) {
+			const row = e as Tables<'project_environments'>;
+			const u = (row.url ?? '').trim();
+			if (!u) continue;
+			const { data: dup } = await locals.supabase
+				.from('monitoring_targets')
+				.select('id')
+				.eq('project_id', params.id)
+				.eq('url', u)
+				.maybeSingle();
+			if (dup) continue;
+			const label = `${row.kind} URL`;
+			const { error } = await (locals.supabase.from('monitoring_targets') as any).insert({
+				project_id: params.id,
+				name: label,
+				url: u,
+				sort_order: order++
+			});
+			if (!error) n++;
+		}
+		await logActivity(locals.supabase, params.id, `Imported ${n} monitoring targets from environments`, getActorName(locals.session!));
+		return { success: true, imported: n };
+	},
+
+	runChecksNow: async ({ locals, params }) => {
+		const gate = requireSession(locals);
+		if (gate) return gate;
+		if (!(await isProjectStaff(locals.supabase, locals.session!.user.id))) {
+			return fail(403, { error: 'Forbidden' });
+		}
+		try {
+			const { checked } = await runMonitoringChecks(locals.supabase as any, { projectId: params.id });
+			await logActivity(
+				locals.supabase,
+				params.id,
+				`Monitoring checks run (${checked} targets)`,
+				getActorName(locals.session!)
+			);
+			return { success: true, checked };
+		} catch (e) {
+			return fail(500, { error: e instanceof Error ? e.message : 'Checks failed' });
+		}
 	}
 };

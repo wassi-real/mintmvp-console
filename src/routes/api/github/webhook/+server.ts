@@ -176,9 +176,16 @@ async function handleWorkflowRun(supabase: any, projectId: string, payload: any)
 	await logActivity(supabase, projectId, `CI run ${run.name}: ${run.conclusion ?? run.status}`, 'GitHub');
 }
 
+function deploymentRef(deploy: { ref?: string } | null | undefined): string | null {
+	const r = deploy?.ref;
+	return typeof r === 'string' && r.length > 0 ? r : null;
+}
+
 async function handleDeployment(supabase: any, projectId: string, payload: any) {
 	const deploy = payload.deployment;
 	if (!deploy) return;
+
+	const ref = deploymentRef(deploy);
 
 	await (supabase.from('github_deployments') as any).upsert(
 		{
@@ -186,11 +193,23 @@ async function handleDeployment(supabase: any, projectId: string, payload: any) 
 			gh_deploy_id: deploy.id,
 			environment: deploy.environment ?? 'production',
 			commit_sha: deploy.sha ?? '',
+			ref,
 			status: 'pending',
 			created_at: deploy.created_at
 		},
 		{ onConflict: 'project_id,gh_deploy_id' }
 	);
+
+	await (supabase.from('deployment_observations') as any).insert({
+		project_id: projectId,
+		gh_deploy_id: deploy.id,
+		environment: deploy.environment ?? 'production',
+		commit_sha: deploy.sha ?? '',
+		ref,
+		state: 'pending',
+		description: 'Deployment created',
+		source: 'github_webhook'
+	});
 
 	await logActivity(supabase, projectId, `Deployment to ${deploy.environment}`, 'GitHub');
 }
@@ -210,17 +229,32 @@ async function handleDeploymentStatus(supabase: any, projectId: string, payload:
 		queued: 'pending'
 	};
 
+	const mapped = stateMap[status.state] ?? 'pending';
+	const ref = deploymentRef(deploy);
+
 	await (supabase.from('github_deployments') as any).upsert(
 		{
 			project_id: projectId,
 			gh_deploy_id: deploy.id,
 			environment: deploy.environment ?? 'production',
 			commit_sha: deploy.sha ?? '',
-			status: stateMap[status.state] ?? 'pending',
+			ref,
+			status: mapped,
 			created_at: deploy.created_at
 		},
 		{ onConflict: 'project_id,gh_deploy_id' }
 	);
+
+	await (supabase.from('deployment_observations') as any).insert({
+		project_id: projectId,
+		gh_deploy_id: deploy.id,
+		environment: deploy.environment ?? 'production',
+		commit_sha: deploy.sha ?? '',
+		ref,
+		state: status.state ?? mapped,
+		description: `Deployment status: ${status.state ?? mapped}`,
+		source: 'github_webhook'
+	});
 
 	await logActivity(supabase, projectId, `Deploy ${deploy.environment}: ${status.state}`, 'GitHub');
 }

@@ -44,7 +44,48 @@
 					</div>
 				</div>
 			</div>
+		{:else}
+			<div class="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
+				<HeartPulse size={40} class="mx-auto text-zinc-500" />
+				<p class="mt-4 text-lg font-medium text-zinc-300">No aggregate health row yet</p>
+				<p class="mt-1 text-sm text-zinc-500">Per-service checks below still update when targets are configured.</p>
+			</div>
+		{/if}
 
+		{#if data.services?.length}
+			<div class="mt-8">
+				<h2 class="text-sm font-semibold uppercase tracking-wide text-zinc-400">Services</h2>
+				<p class="mt-1 text-xs text-zinc-500">
+					Uptime % is successful checks in the last 24 hours. Probed from MintMVP; interval depends on your
+					<code class="rounded bg-zinc-800 px-1 font-mono">/api/cron/monitoring-check</code> schedule.
+				</p>
+				<div class="mt-3 space-y-2">
+					{#each data.services as s}
+						<div
+							class="flex flex-col gap-1 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+						>
+							<div>
+								<p class="font-medium text-white">{s.name}</p>
+								<p class="text-xs text-zinc-500">
+									Last check {s.lastChecked ? timeAgo(s.lastChecked) : 'never'}
+									{#if s.lastOk !== null}
+										· last result {s.lastOk ? 'OK' : 'failed'}
+									{/if}
+								</p>
+							</div>
+							<div class="text-right">
+								<p class="text-xs text-zinc-500">24h uptime</p>
+								<p class="text-lg font-semibold tabular-nums text-white">
+									{s.uptime24h === null ? '—' : `${Math.round(s.uptime24h * 100)}%`}
+								</p>
+							</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
+		{#if data.health}
 			<div class="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
 				<div class="rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 text-center">
 					<p class="text-xs font-medium text-zinc-500">Uptime</p>
@@ -72,12 +113,6 @@
 						{data.openIncidents}
 					</p>
 				</div>
-			</div>
-		{:else}
-			<div class="mt-10 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
-				<HeartPulse size={40} class="mx-auto text-zinc-500" />
-				<p class="mt-4 text-lg font-medium text-zinc-300">No health data yet</p>
-				<p class="mt-1 text-sm text-zinc-500">This page will show metrics once the team configures monitoring.</p>
 			</div>
 		{/if}
 

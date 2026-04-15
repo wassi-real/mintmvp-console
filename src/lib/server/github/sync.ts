@@ -167,11 +167,13 @@ export async function fullSync(
 			} catch {
 				/* keep pending */
 			}
+			const refRaw = typeof d.ref === 'string' ? d.ref : null;
 			deployRows.push({
 				project_id: projectId,
 				gh_deploy_id: d.id,
 				environment: d.environment ?? 'production',
 				commit_sha: d.sha ?? '',
+				ref: refRaw,
 				status,
 				created_at: d.created_at
 			});

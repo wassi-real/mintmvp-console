@@ -1,8 +1,16 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/PageHeader.svelte';
-	import { FileText, ListTodo, FlaskConical, Server, Rocket, HeartPulse } from 'lucide-svelte';
+	import { FileText, ListTodo, FlaskConical, Server, Rocket, HeartPulse, GitBranch } from 'lucide-svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	let { data } = $props();
+
+	function onBranchChange(name: string) {
+		const u = new URL($page.url);
+		u.searchParams.set('branch', name);
+		goto(`${u.pathname}?${u.searchParams.toString()}`, { replaceState: true, noScroll: true });
+	}
 
 	const stageIcons = [FileText, ListTodo, FlaskConical, Server, Rocket, HeartPulse];
 
@@ -32,7 +40,33 @@
 </script>
 
 <div>
-	<PageHeader title="Pipeline" description="Spec to Production at a glance" />
+	<PageHeader title="Pipeline" description="Spec to Production at a glance — CI and GitHub deploy stages follow the selected branch" />
+
+	{#if data.branches?.length}
+		<div class="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+			<label for="pipe-branch" class="flex items-center gap-2 text-sm font-medium text-foreground">
+				<GitBranch size={16} class="text-muted-foreground" />
+				Branch
+			</label>
+			<select
+				id="pipe-branch"
+				class="max-w-xs rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+				value={data.selectedBranch}
+				onchange={(e) => onBranchChange((e.currentTarget as HTMLSelectElement).value)}
+			>
+				{#each data.branches as b}
+					<option value={b}>{b}</option>
+				{/each}
+			</select>
+			<p class="text-xs text-muted-foreground">
+				Testing uses GitHub Actions runs for this branch. Staging / Production use GitHub deployments whose ref matches this branch (falls back to manual deploy rows if none).
+			</p>
+		</div>
+	{:else}
+		<p class="mt-4 text-sm text-muted-foreground">
+			No Git branches synced yet. Connect GitHub under Settings to populate branches and branch-scoped CI.
+		</p>
+	{/if}
 
 	<!-- Pipeline stepper — stacks vertically on small, 2-col on medium, horizontal on large -->
 	<div class="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">

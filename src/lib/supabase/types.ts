@@ -329,6 +329,102 @@ export type Database = {
 					updated_at?: string;
 				};
 			};
+			deployment_observations: {
+				Row: {
+					id: string;
+					project_id: string;
+					gh_deploy_id: number;
+					environment: string;
+					commit_sha: string;
+					ref: string | null;
+					state: string;
+					description: string | null;
+					observed_at: string;
+					source: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					gh_deploy_id: number;
+					environment?: string;
+					commit_sha?: string;
+					ref?: string | null;
+					state: string;
+					description?: string | null;
+					observed_at?: string;
+					source?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					gh_deploy_id?: number;
+					environment?: string;
+					commit_sha?: string;
+					ref?: string | null;
+					state?: string;
+					description?: string | null;
+					observed_at?: string;
+					source?: string;
+				};
+			};
+			monitoring_check_runs: {
+				Row: {
+					id: string;
+					target_id: string;
+					checked_at: string;
+					ok: boolean;
+					http_status: number | null;
+					duration_ms: number;
+					error_message: string | null;
+				};
+				Insert: {
+					id?: string;
+					target_id: string;
+					checked_at?: string;
+					ok?: boolean;
+					http_status?: number | null;
+					duration_ms?: number;
+					error_message?: string | null;
+				};
+				Update: {
+					id?: string;
+					target_id?: string;
+					checked_at?: string;
+					ok?: boolean;
+					http_status?: number | null;
+					duration_ms?: number;
+					error_message?: string | null;
+				};
+			};
+			monitoring_targets: {
+				Row: {
+					id: string;
+					project_id: string;
+					name: string;
+					url: string;
+					enabled: boolean;
+					sort_order: number;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					name: string;
+					url: string;
+					enabled?: boolean;
+					sort_order?: number;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					name?: string;
+					url?: string;
+					enabled?: boolean;
+					sort_order?: number;
+					created_at?: string;
+				};
+			};
 			milestones: {
 			Row: {
 				id: string;
@@ -601,6 +697,7 @@ export type Database = {
 					gh_deploy_id: number;
 					environment: string;
 					commit_sha: string;
+					ref: string | null;
 					status: 'pending' | 'success' | 'failure' | 'inactive';
 					created_at: string;
 				};
@@ -610,6 +707,7 @@ export type Database = {
 					gh_deploy_id: number;
 					environment?: string;
 					commit_sha?: string;
+					ref?: string | null;
 					status?: 'pending' | 'success' | 'failure' | 'inactive';
 					created_at?: string;
 				};
@@ -619,6 +717,7 @@ export type Database = {
 					gh_deploy_id?: number;
 					environment?: string;
 					commit_sha?: string;
+					ref?: string | null;
 					status?: 'pending' | 'success' | 'failure' | 'inactive';
 					created_at?: string;
 				};

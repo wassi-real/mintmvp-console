@@ -1,7 +1,21 @@
 <script lang="ts">
 	import PageHeader from '$lib/components/PageHeader.svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import { HeartPulse, AlertTriangle, AlertCircle, CheckCircle, XCircle, Pencil, Loader, Globe, Copy, Link2 } from 'lucide-svelte';
+	import {
+		HeartPulse,
+		AlertCircle,
+		CheckCircle,
+		XCircle,
+		Pencil,
+		Loader,
+		Globe,
+		Copy,
+		Link2,
+		Plus,
+		Trash2,
+		Play,
+		Download
+	} from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 
@@ -63,10 +77,33 @@
 	let editSubmitting = $state(false);
 	let editError = $state('');
 
+	let targetModalOpen = $state(false);
+	let targetEdit = $state<{
+		id?: string;
+		name: string;
+		url: string;
+		enabled: boolean;
+	} | null>(null);
+	let targetSubmitting = $state(false);
+
 	function openEdit() {
 		editItem = { ...data.health };
 		editError = '';
 		editOpen = true;
+	}
+
+	function targetNameForRun(targetId: string) {
+		return data.monitoringTargets.find((t) => t.id === targetId)?.name ?? targetId.slice(0, 8);
+	}
+
+	function openNewTarget() {
+		targetEdit = { name: '', url: '', enabled: true };
+		targetModalOpen = true;
+	}
+
+	function openEditTarget(t: (typeof data.monitoringTargets)[0]) {
+		targetEdit = { id: t.id, name: t.name, url: t.url, enabled: t.enabled };
+		targetModalOpen = true;
 	}
 </script>
 
@@ -223,6 +260,173 @@
 		</div>
 	{/if}
 
+	{#if data.canManageTargets}
+		<div class="mt-8 rounded-xl border border-border bg-card p-6">
+			<div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+				<div>
+					<h2 class="text-lg font-semibold text-foreground">HTTP monitoring targets</h2>
+					<p class="mt-1 text-sm text-muted-foreground">
+						Each URL is probed with GET (10s timeout). Schedule <code class="rounded bg-secondary px-1 font-mono text-xs">POST /api/cron/monitoring-check</code> with header
+						<code class="rounded bg-secondary px-1 font-mono text-xs">Authorization: Bearer $MONITORING_CRON_SECRET</code>.
+					</p>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					<form
+						method="POST"
+						action="?/runChecksNow"
+						use:enhance={() => {
+							targetSubmitting = true;
+							return async ({ update }) => {
+								await update();
+								targetSubmitting = false;
+								await invalidateAll();
+							};
+						}}
+					>
+						<button
+							type="submit"
+							disabled={targetSubmitting}
+							class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+						>
+							<Play size={16} /> Run checks now
+						</button>
+					</form>
+					<form
+						method="POST"
+						action="?/importFromEnvironments"
+						use:enhance={() => {
+							targetSubmitting = true;
+							return async ({ update }) => {
+								await update();
+								targetSubmitting = false;
+								await invalidateAll();
+							};
+						}}
+					>
+						<button
+							type="submit"
+							disabled={targetSubmitting}
+							class="inline-flex items-center gap-2 rounded-lg border border-border bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary/80 disabled:opacity-50"
+						>
+							<Download size={16} /> Import from environments
+						</button>
+					</form>
+					<button
+						type="button"
+						onclick={openNewTarget}
+						class="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary"
+					>
+						<Plus size={16} /> Add target
+					</button>
+				</div>
+			</div>
+
+			{#if data.monitoringTargets.length === 0}
+				<p class="mt-4 text-sm text-muted-foreground">No targets yet. Import from environments or add a URL.</p>
+			{:else}
+				<div class="mt-4 overflow-x-auto rounded-lg border border-border">
+					<table class="w-full text-left text-sm">
+						<thead class="border-b border-border bg-secondary/40">
+							<tr>
+								<th class="px-3 py-2 font-semibold">Name</th>
+								<th class="px-3 py-2 font-semibold">URL</th>
+								<th class="px-3 py-2 font-semibold">Enabled</th>
+								<th class="px-3 py-2 font-semibold"></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each data.monitoringTargets as t}
+								<tr class="border-b border-border">
+									<td class="px-3 py-2 font-medium text-foreground">{t.name}</td>
+									<td class="max-w-[200px] truncate px-3 py-2 font-mono text-xs text-muted-foreground">{t.url}</td>
+									<td class="px-3 py-2">{t.enabled ? 'Yes' : 'No'}</td>
+									<td class="px-3 py-2 text-right">
+										<button
+											type="button"
+											onclick={() => openEditTarget(t)}
+											class="mr-2 text-primary hover:underline">Edit</button
+										>
+										<form method="POST" action="?/deleteTarget" class="inline" use:enhance={() => {
+											return async ({ update }) => { await update(); await invalidateAll(); };
+										}}>
+											<input type="hidden" name="id" value={t.id} />
+											<button type="submit" class="inline-flex items-center gap-1 text-red-400 hover:underline">
+												<Trash2 size={14} /> Remove
+											</button>
+										</form>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+
+			{#if data.recentRuns?.length}
+				<h3 class="mt-6 text-sm font-semibold text-foreground">Recent check runs</h3>
+				<div class="mt-2 max-h-56 overflow-y-auto rounded-lg border border-border text-xs">
+					<table class="w-full text-left">
+						<thead class="sticky top-0 bg-secondary/80">
+							<tr>
+								<th class="px-2 py-1.5">Target</th>
+								<th class="px-2 py-1.5">Time</th>
+								<th class="px-2 py-1.5">OK</th>
+								<th class="px-2 py-1.5">HTTP</th>
+								<th class="px-2 py-1.5">ms</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each data.recentRuns as r}
+								<tr class="border-t border-border/60">
+									<td class="px-2 py-1">{targetNameForRun(r.target_id)}</td>
+									<td class="px-2 py-1 text-muted-foreground">{timeAgo(r.checked_at)}</td>
+									<td class="px-2 py-1">{r.ok ? 'yes' : 'no'}</td>
+									<td class="px-2 py-1">{r.http_status ?? '—'}</td>
+									<td class="px-2 py-1">{r.duration_ms}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<div class="mt-8 rounded-xl border border-border bg-card p-6">
+		<h2 class="text-lg font-semibold text-foreground">Deployment activity</h2>
+		<p class="mt-1 text-sm text-muted-foreground">
+			Append-only log from GitHub deployment webhooks (ref, SHA, environment, state).
+		</p>
+		{#if !data.deploymentObservations?.length}
+			<p class="mt-3 text-sm text-muted-foreground">No deployment events recorded yet.</p>
+		{:else}
+			<div class="mt-4 max-h-64 overflow-y-auto rounded-lg border border-border text-sm">
+				<table class="w-full text-left">
+					<thead class="sticky top-0 bg-secondary/80">
+						<tr>
+							<th class="px-3 py-2">When</th>
+							<th class="px-3 py-2">Env</th>
+							<th class="px-3 py-2">Ref</th>
+							<th class="px-3 py-2">SHA</th>
+							<th class="px-3 py-2">State</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.deploymentObservations as o}
+							<tr class="border-t border-border/60">
+								<td class="px-3 py-1.5 text-muted-foreground">{timeAgo(o.observed_at)}</td>
+								<td class="px-3 py-1.5">{o.environment}</td>
+								<td class="px-3 py-1.5 font-mono text-xs">{o.ref ?? '—'}</td>
+								<td class="px-3 py-1.5 font-mono text-xs">{(o.commit_sha ?? '').slice(0, 7)}</td>
+								<td class="px-3 py-1.5">{o.state}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+	</div>
+
 	<!-- Main health card -->
 	{#if data.health}
 		{@const StatusIcon = cfg.icon}
@@ -257,6 +461,72 @@
 		</div>
 	{/if}
 </div>
+
+<Modal bind:open={targetModalOpen} title={targetEdit?.id ? 'Edit monitoring target' : 'Add monitoring target'}>
+	{#if targetEdit}
+		<form
+			method="POST"
+			action={targetEdit.id ? '?/updateTarget' : '?/createTarget'}
+			use:enhance={() => {
+				targetSubmitting = true;
+				return async ({ result, update }) => {
+					await update();
+					targetSubmitting = false;
+					if (result.type === 'success') {
+						targetModalOpen = false;
+						await invalidateAll();
+					}
+				};
+			}}
+		>
+			{#if targetEdit.id}<input type="hidden" name="id" value={targetEdit.id} />{/if}
+			<div class="space-y-4">
+				<div>
+					<label for="mt-name" class="mb-1 block text-sm font-medium">Name</label>
+					<input
+						id="mt-name"
+						name="name"
+						required
+						bind:value={targetEdit.name}
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+					/>
+				</div>
+				<div>
+					<label for="mt-url" class="mb-1 block text-sm font-medium">URL</label>
+					<input
+						id="mt-url"
+						name="url"
+						type="url"
+						required
+						bind:value={targetEdit.url}
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono"
+					/>
+				</div>
+				{#if targetEdit.id}
+					<div>
+						<label for="mt-en" class="mb-1 block text-sm font-medium">Enabled</label>
+						<select id="mt-en" name="enabled" class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm">
+							<option value="true" selected={targetEdit.enabled}>On</option>
+							<option value="false" selected={!targetEdit.enabled}>Off</option>
+						</select>
+					</div>
+				{/if}
+			</div>
+			<div class="mt-6 flex gap-2">
+				<button
+					type="submit"
+					disabled={targetSubmitting}
+					class="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+				>
+					{targetEdit.id ? 'Save' : 'Create'}
+				</button>
+				<button type="button" onclick={() => (targetModalOpen = false)} class="rounded-lg bg-secondary px-4 py-2 text-sm">
+					Cancel
+				</button>
+			</div>
+		</form>
+	{/if}
+</Modal>
 
 <Modal bind:open={editOpen} title="Update Health Status">
 	{#if editItem}
