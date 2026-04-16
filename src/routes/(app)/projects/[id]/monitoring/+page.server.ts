@@ -6,6 +6,25 @@ import { createServiceRoleClient } from '$lib/supabase/server';
 import { isProjectStaff } from '$lib/server/roles';
 import { newPublicMonitoringToken } from '$lib/server/public-monitoring';
 import { runMonitoringChecks } from '$lib/server/monitoring-checks';
+import {
+	loadGithubDeploymentLogForProject,
+	deploymentLogRowsFromDbOnly,
+	type GithubDeploymentLogRow
+} from '$lib/server/github/deployment-log';
+
+export type MonitoringDeploymentLogRow = GithubDeploymentLogRow;
+
+function deployInsightFromStates(states: string[]) {
+	return {
+		shown: states.length,
+		success: states.filter((s) => String(s).toLowerCase() === 'success').length,
+		failed: states.filter((o) => /failure|error|fail/i.test(String(o))).length,
+		inProgress: states.filter((o) => {
+			const s = String(o).toLowerCase();
+			return s.includes('pending') || s.includes('progress') || s === 'queued' || s === 'in_progress';
+		}).length
+	};
+}
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
 	let { data: health } = await locals.supabase
@@ -46,12 +65,73 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		recentRuns = (runs ?? []) as Tables<'monitoring_check_runs'>[];
 	}
 
-	const { data: deploymentObs } = await locals.supabase
-		.from('deployment_observations')
-		.select('*')
-		.eq('project_id', params.id)
-		.order('observed_at', { ascending: false })
-		.limit(40);
+	const [{ data: deploymentObs }, { data: integration }, { data: ciRuns }, { data: ghDeployRows }] =
+		await Promise.all([
+			locals.supabase
+				.from('deployment_observations')
+				.select('*')
+				.eq('project_id', params.id)
+				.order('observed_at', { ascending: false })
+				.limit(60),
+			locals.supabase
+				.from('project_integrations_github')
+				.select('repo_owner, repo_name')
+				.eq('project_id', params.id)
+				.maybeSingle(),
+			locals.supabase
+				.from('github_ci_runs')
+				.select('gh_run_id, workflow_name, branch, status, commit_sha, created_at')
+				.eq('project_id', params.id)
+				.order('created_at', { ascending: false })
+				.limit(35),
+			locals.supabase
+				.from('github_deployments')
+				.select('*')
+				.eq('project_id', params.id)
+				.order('created_at', { ascending: false })
+				.limit(40)
+		]);
+
+	const obsList = (deploymentObs ?? []) as Tables<'deployment_observations'>[];
+	const deployInsight = {
+		shown: obsList.length,
+		success: obsList.filter((o) => String(o.state).toLowerCase() === 'success').length,
+		failed: obsList.filter((o) => /failure|error|fail/i.test(String(o.state))).length,
+		inProgress: obsList.filter((o) => {
+			const s = String(o.state).toLowerCase();
+			return s.includes('pending') || s.includes('progress') || s === 'queued' || s === 'in_progress';
+		}).length
+	};
+
+	const cachedDeployRows = (ghDeployRows ?? []) as Tables<'github_deployments'>[];
+	const githubDeploymentLogPack =
+		locals.session?.user != null
+			? await loadGithubDeploymentLogForProject(params.id, cachedDeployRows)
+			: cachedDeployRows.length
+				? {
+						rows: deploymentLogRowsFromDbOnly(cachedDeployRows),
+						source: 'cached' as const,
+						error: null as string | null
+					}
+				: { rows: [] as GithubDeploymentLogRow[], source: 'none' as const, error: null as string | null };
+
+	const deployLogInsight = deployInsightFromStates(
+		githubDeploymentLogPack.rows.map((r) => r.state)
+	);
+
+	const integ = integration as { repo_owner: string; repo_name: string } | null;
+	const githubRepo =
+		integ?.repo_owner && integ?.repo_name
+			? { owner: integ.repo_owner.trim(), repo: integ.repo_name.trim() }
+			: null;
+	const recentCiRuns = (ciRuns ?? []) as {
+		gh_run_id: number;
+		workflow_name: string;
+		branch: string;
+		status: string;
+		commit_sha: string;
+		created_at: string;
+	}[];
 
 	const canManagePublicMonitoring =
 		locals.session?.user?.id != null &&
@@ -84,7 +164,14 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		publicStatusPage,
 		monitoringTargets: (monitoringTargets ?? []) as Tables<'monitoring_targets'>[],
 		recentRuns,
-		deploymentObservations: (deploymentObs ?? []) as Tables<'deployment_observations'>[],
+		deploymentObservations: obsList,
+		deployInsight,
+		githubDeploymentLog: githubDeploymentLogPack.rows,
+		githubDeploymentLogSource: githubDeploymentLogPack.source,
+		githubDeploymentLogError: githubDeploymentLogPack.error,
+		deployLogInsight,
+		githubRepo,
+		recentCiRuns,
 		canManageTargets
 	};
 };

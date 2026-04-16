@@ -181,11 +181,27 @@ function deploymentRef(deploy: { ref?: string } | null | undefined): string | nu
 	return typeof r === 'string' && r.length > 0 ? r : null;
 }
 
+const MAX_GITHUB_DETAIL = 6000;
+
+function truncateDetail(s: string): string {
+	if (s.length <= MAX_GITHUB_DETAIL) return s;
+	return s.slice(0, MAX_GITHUB_DETAIL) + '…';
+}
+
 async function handleDeployment(supabase: any, projectId: string, payload: any) {
 	const deploy = payload.deployment;
 	if (!deploy) return;
 
 	const ref = deploymentRef(deploy);
+	const creatorLogin =
+		typeof deploy.creator?.login === 'string' ? deploy.creator.login : null;
+	const deployDescRaw =
+		typeof deploy.description === 'string' && deploy.description.trim()
+			? deploy.description.trim()
+			: '';
+	const githubDetail = deployDescRaw ? truncateDetail(deployDescRaw) : null;
+	const shortDesc =
+		deployDescRaw.length > 200 ? `${deployDescRaw.slice(0, 200)}…` : deployDescRaw || 'Deployment created';
 
 	await (supabase.from('github_deployments') as any).upsert(
 		{
@@ -207,7 +223,12 @@ async function handleDeployment(supabase: any, projectId: string, payload: any) 
 		commit_sha: deploy.sha ?? '',
 		ref,
 		state: 'pending',
-		description: 'Deployment created',
+		description: shortDesc,
+		github_status_detail: githubDetail,
+		environment_url: null,
+		log_url: null,
+		target_url: null,
+		creator_login: creatorLogin,
 		source: 'github_webhook'
 	});
 
@@ -231,6 +252,24 @@ async function handleDeploymentStatus(supabase: any, projectId: string, payload:
 
 	const mapped = stateMap[status.state] ?? 'pending';
 	const ref = deploymentRef(deploy);
+	const creatorLogin =
+		typeof deploy.creator?.login === 'string' ? deploy.creator.login : null;
+
+	const rawGitHubDesc =
+		typeof status.description === 'string' && status.description.trim()
+			? status.description.trim()
+			: '';
+	const githubDetail = rawGitHubDesc ? truncateDetail(rawGitHubDesc) : null;
+	const stateLabel = status.state ?? mapped;
+	const shortDesc = rawGitHubDesc
+		? rawGitHubDesc.length > 220
+			? `${rawGitHubDesc.slice(0, 220)}…`
+			: rawGitHubDesc
+		: `Status: ${stateLabel}`;
+
+	const envUrl = typeof status.environment_url === 'string' ? status.environment_url : null;
+	const logUrl = typeof status.log_url === 'string' ? status.log_url : null;
+	const targetUrl = typeof status.target_url === 'string' ? status.target_url : null;
 
 	await (supabase.from('github_deployments') as any).upsert(
 		{
@@ -251,8 +290,13 @@ async function handleDeploymentStatus(supabase: any, projectId: string, payload:
 		environment: deploy.environment ?? 'production',
 		commit_sha: deploy.sha ?? '',
 		ref,
-		state: status.state ?? mapped,
-		description: `Deployment status: ${status.state ?? mapped}`,
+		state: stateLabel,
+		description: shortDesc,
+		github_status_detail: githubDetail,
+		environment_url: envUrl,
+		log_url: logUrl,
+		target_url: targetUrl,
+		creator_login: creatorLogin,
 		source: 'github_webhook'
 	});
 

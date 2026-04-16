@@ -2,6 +2,10 @@ import { randomBytes } from 'node:crypto';
 import { error } from '@sveltejs/kit';
 import { createServiceRoleClient } from '$lib/supabase/server';
 import type { Tables } from '$lib/supabase/types';
+import {
+	loadGithubDeploymentLogForProject,
+	type GithubDeploymentLogRow
+} from '$lib/server/github/deployment-log';
 
 const TOKEN_RE = /^[a-f0-9]{64}$/;
 
@@ -17,6 +21,15 @@ export type PublicMonitoringServiceRow = {
 	uptime24h: number | null;
 };
 
+export type PublicGithubCiRun = {
+	gh_run_id: number;
+	workflow_name: string;
+	branch: string;
+	status: string;
+	commit_sha: string;
+	created_at: string;
+};
+
 export type PublicMonitoringPayload = {
 	projectName: string;
 	health: Tables<'project_health'> | null;
@@ -24,6 +37,11 @@ export type PublicMonitoringPayload = {
 	totalIncidents: number;
 	updatedAt: string | null;
 	services: PublicMonitoringServiceRow[];
+	/** Connected repo for outbound links only */
+	githubRepo: { owner: string; repo: string } | null;
+	githubDeploymentLog: GithubDeploymentLogRow[];
+	githubDeploymentLogSource: 'live' | 'cached' | 'none';
+	githubCiRuns: PublicGithubCiRun[];
 };
 
 /**
@@ -101,12 +119,43 @@ export async function loadPublicMonitoringByToken(rawToken: string): Promise<Pub
 		});
 	}
 
+	const [{ data: integGh }, { data: ghDeployRows }, { data: pubCiRuns }] = await Promise.all([
+		admin.from('project_integrations_github').select('repo_owner, repo_name').eq('project_id', projectId).maybeSingle(),
+		admin
+			.from('github_deployments')
+			.select('*')
+			.eq('project_id', projectId)
+			.order('created_at', { ascending: false })
+			.limit(40),
+		admin
+			.from('github_ci_runs')
+			.select('gh_run_id, workflow_name, branch, status, commit_sha, created_at')
+			.eq('project_id', projectId)
+			.order('created_at', { ascending: false })
+			.limit(25)
+	]);
+
+	const ig = integGh as { repo_owner: string; repo_name: string } | null;
+	const githubRepo =
+		ig?.repo_owner?.trim() && ig?.repo_name?.trim()
+			? { owner: ig.repo_owner.trim(), repo: ig.repo_name.trim() }
+			: null;
+
+	const cachedDeployRows = (ghDeployRows ?? []) as Tables<'github_deployments'>[];
+	const githubLogPack = await loadGithubDeploymentLogForProject(projectId, cachedDeployRows);
+
+	const githubCiRuns = (pubCiRuns ?? []) as PublicGithubCiRun[];
+
 	return {
 		projectName: (project as { name: string }).name,
 		health: health as Tables<'project_health'> | null,
 		openIncidents: inc.filter((i) => i.status === 'open').length,
 		totalIncidents: inc.length,
 		updatedAt: (health as Tables<'project_health'> | null)?.last_check_at ?? null,
-		services
+		services,
+		githubRepo,
+		githubDeploymentLog: githubLogPack.rows,
+		githubDeploymentLogSource: githubLogPack.source,
+		githubCiRuns
 	};
 }

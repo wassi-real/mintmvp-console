@@ -341,6 +341,11 @@ export type Database = {
 					description: string | null;
 					observed_at: string;
 					source: string;
+					github_status_detail: string | null;
+					environment_url: string | null;
+					log_url: string | null;
+					target_url: string | null;
+					creator_login: string | null;
 				};
 				Insert: {
 					id?: string;
@@ -353,6 +358,11 @@ export type Database = {
 					description?: string | null;
 					observed_at?: string;
 					source?: string;
+					github_status_detail?: string | null;
+					environment_url?: string | null;
+					log_url?: string | null;
+					target_url?: string | null;
+					creator_login?: string | null;
 				};
 				Update: {
 					id?: string;
@@ -365,6 +375,11 @@ export type Database = {
 					description?: string | null;
 					observed_at?: string;
 					source?: string;
+					github_status_detail?: string | null;
+					environment_url?: string | null;
+					log_url?: string | null;
+					target_url?: string | null;
+					creator_login?: string | null;
 				};
 			};
 			monitoring_check_runs: {

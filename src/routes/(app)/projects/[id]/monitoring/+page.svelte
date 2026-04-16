@@ -14,7 +14,9 @@
 		Plus,
 		Trash2,
 		Play,
-		Download
+		Download,
+		Github,
+		ExternalLink
 	} from 'lucide-svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
@@ -105,10 +107,42 @@
 		targetEdit = { id: t.id, name: t.name, url: t.url, enabled: t.enabled };
 		targetModalOpen = true;
 	}
+
+	function githubActionsRunUrl(runId: number): string | null {
+		const r = data.githubRepo;
+		if (!r) return null;
+		return `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/actions/runs/${runId}`;
+	}
+
+	function githubDeploymentPageUrl(deployId: number): string | null {
+		const r = data.githubRepo;
+		if (!r) return null;
+		return `https://github.com/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.repo)}/deployments/${deployId}`;
+	}
+
+	function deployStateTone(state: string): string {
+		const s = String(state).toLowerCase();
+		if (s === 'success') return 'text-green-400';
+		if (s.includes('fail') || s === 'error' || s === 'failure') return 'text-red-400';
+		if (s.includes('pend') || s.includes('progress') || s === 'queued' || s === 'in_progress') return 'text-amber-400';
+		return 'text-muted-foreground';
+	}
+
+	function ciStatusTone(status: string): string {
+		const s = String(status).toLowerCase();
+		if (s === 'success') return 'text-green-400';
+		if (s === 'failure') return 'text-red-400';
+		if (s === 'cancelled') return 'text-muted-foreground';
+		if (s === 'in_progress' || s === 'pending') return 'text-amber-400';
+		return 'text-foreground';
+	}
 </script>
 
 <div>
-	<PageHeader title="System Health" description="Monitoring overview">
+	<PageHeader
+		title="System Health"
+		description="HTTP probes, GitHub deployment feedback, and Actions run logs — together they show whether services are up and running smoothly."
+	>
 		{#snippet actions()}
 			<button onclick={openEdit}
 				class="flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-base font-semibold text-primary-foreground hover:bg-primary/90">
@@ -373,6 +407,7 @@
 								<th class="px-2 py-1.5">OK</th>
 								<th class="px-2 py-1.5">HTTP</th>
 								<th class="px-2 py-1.5">ms</th>
+								<th class="px-2 py-1.5">Error / note</th>
 							</tr>
 						</thead>
 						<tbody>
@@ -383,6 +418,9 @@
 									<td class="px-2 py-1">{r.ok ? 'yes' : 'no'}</td>
 									<td class="px-2 py-1">{r.http_status ?? '—'}</td>
 									<td class="px-2 py-1">{r.duration_ms}</td>
+									<td class="max-w-[180px] truncate px-2 py-1 text-amber-300/90" title={r.error_message ?? ''}
+										>{r.error_message ?? '—'}</td
+									>
 								</tr>
 							{/each}
 						</tbody>
@@ -393,32 +431,283 @@
 	{/if}
 
 	<div class="mt-8 rounded-xl border border-border bg-card p-6">
-		<h2 class="text-lg font-semibold text-foreground">Deployment activity</h2>
-		<p class="mt-1 text-sm text-muted-foreground">
-			Append-only log from GitHub deployment webhooks (ref, SHA, environment, state).
+		<div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+			<div>
+				<h2 class="text-lg font-semibold text-foreground">GitHub deployments</h2>
+				<p class="mt-1 max-w-3xl text-sm text-muted-foreground">
+					Deployment history is read directly from the GitHub REST API on each page load (list deployments plus the
+					latest status per deployment: description, environment URL, and log links when GitHub exposes them). This does
+					not depend on webhooks. Optional webhook events appear below when configured.
+				</p>
+			</div>
+			<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
+				<Github size={22} class="text-foreground" />
+			</div>
+		</div>
+
+		{#if data.githubDeploymentLogError && data.githubDeploymentLogSource === 'cached'}
+			<p class="mt-3 rounded-lg border border-amber-600/40 bg-amber-950/20 px-3 py-2 text-sm text-amber-200/95">
+				Live GitHub fetch failed ({data.githubDeploymentLogError}). Showing the last synced copy from the database instead.
+			</p>
+		{:else if data.githubDeploymentLogError && !data.githubDeploymentLog?.length}
+			<p class="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-foreground">
+				{data.githubDeploymentLogError}
+			</p>
+		{/if}
+
+		<p class="mt-2 text-xs text-muted-foreground">
+			Source:
+			{#if data.githubDeploymentLogSource === 'live'}
+				<span class="text-foreground/90">GitHub API (this request)</span>
+			{:else if data.githubDeploymentLogSource === 'cached'}
+				<span class="text-foreground/90">Database cache</span> (sync or fallback when live fetch is unavailable)
+			{:else}
+				<span class="text-foreground/90">—</span>
+			{/if}
 		</p>
-		{#if !data.deploymentObservations?.length}
-			<p class="mt-3 text-sm text-muted-foreground">No deployment events recorded yet.</p>
+
+		{#if data.deployLogInsight.shown > 0}
+			<div
+				class="mt-4 flex flex-wrap gap-4 rounded-lg border border-border bg-secondary/30 px-4 py-3 text-sm text-foreground"
+			>
+				<span><strong>{data.deployLogInsight.shown}</strong> deployments</span>
+				<span class="text-green-400"><strong>{data.deployLogInsight.success}</strong> success</span>
+				<span class="text-red-400"><strong>{data.deployLogInsight.failed}</strong> failed / error</span>
+				<span class="text-amber-400"><strong>{data.deployLogInsight.inProgress}</strong> in progress / pending</span>
+			</div>
+		{/if}
+
+		{#if !data.githubDeploymentLog?.length}
+			<p class="mt-4 text-sm text-muted-foreground">
+				No GitHub deployments returned for this repository yet. If you use GitHub Deployments (API, Actions
+				<code class="rounded bg-secondary px-1 text-xs">environment</code>, or similar), they will appear here after they
+				exist on GitHub. Connect the repo under project settings if needed, and ensure the app can read repository
+				contents and deployments.
+			</p>
 		{:else}
-			<div class="mt-4 max-h-64 overflow-y-auto rounded-lg border border-border text-sm">
+			<div class="mt-4 max-h-[28rem] overflow-y-auto rounded-lg border border-border text-sm">
 				<table class="w-full text-left">
-					<thead class="sticky top-0 bg-secondary/80">
+					<thead class="sticky top-0 z-10 bg-secondary/95 backdrop-blur">
 						<tr>
 							<th class="px-3 py-2">When</th>
-							<th class="px-3 py-2">Env</th>
-							<th class="px-3 py-2">Ref</th>
-							<th class="px-3 py-2">SHA</th>
 							<th class="px-3 py-2">State</th>
+							<th class="px-3 py-2">Env</th>
+							<th class="hidden px-3 py-2 sm:table-cell">Ref</th>
+							<th class="px-3 py-2">SHA</th>
+							<th class="hidden px-3 py-2 md:table-cell">By</th>
+							<th class="px-3 py-2">Links</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.githubDeploymentLog as row}
+							<tr class="border-t border-border/60 align-top">
+								<td class="whitespace-nowrap px-3 py-2 text-muted-foreground">{timeAgo(row.created_at)}</td>
+								<td class="px-3 py-2 font-medium {deployStateTone(row.state)}">{row.state}</td>
+								<td class="px-3 py-2">{row.environment}</td>
+								<td class="hidden max-w-[120px] truncate px-3 py-2 font-mono text-xs sm:table-cell">{row.ref ?? '—'}</td>
+								<td class="px-3 py-2 font-mono text-xs">{(row.commit_sha ?? '').slice(0, 7)}</td>
+								<td class="hidden px-3 py-2 text-xs text-muted-foreground md:table-cell">{row.creator_login ?? '—'}</td>
+								<td class="px-3 py-2">
+									<div class="flex flex-wrap gap-x-2 gap-y-1">
+										{#if githubDeploymentPageUrl(row.gh_deploy_id)}
+											<a
+												href={githubDeploymentPageUrl(row.gh_deploy_id)!}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Deploy <ExternalLink size={12} /></a
+											>
+										{/if}
+										{#if row.environment_url}
+											<a
+												href={row.environment_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Environment <ExternalLink size={12} /></a
+											>
+										{/if}
+										{#if row.log_url}
+											<a
+												href={row.log_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Logs <ExternalLink size={12} /></a
+											>
+										{/if}
+										{#if row.target_url}
+											<a
+												href={row.target_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Target <ExternalLink size={12} /></a
+											>
+										{/if}
+									</div>
+								</td>
+							</tr>
+							<tr class="border-t border-border/40 bg-secondary/20">
+								<td colspan="7" class="px-3 pb-3 pt-0">
+									<p class="pt-2 text-xs font-medium text-muted-foreground">Latest status description</p>
+									<p class="mt-0.5 text-xs text-foreground/90">{row.description?.trim() ? row.description : '—'}</p>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+
+		{#if data.deploymentObservations?.length}
+			<h3 class="mt-8 text-sm font-semibold text-foreground">Webhook deployment events (optional)</h3>
+			<p class="mt-1 text-sm text-muted-foreground">
+				Real-time rows from <code class="rounded bg-secondary px-1 text-xs">deployment</code> and
+				<code class="rounded bg-secondary px-1 text-xs">deployment_status</code> when the GitHub App receives them.
+			</p>
+			{#if data.deployInsight.shown > 0}
+				<div
+					class="mt-3 flex flex-wrap gap-4 rounded-lg border border-border bg-secondary/30 px-4 py-3 text-sm text-foreground"
+				>
+					<span><strong>{data.deployInsight.shown}</strong> recent events</span>
+					<span class="text-green-400"><strong>{data.deployInsight.success}</strong> success</span>
+					<span class="text-red-400"><strong>{data.deployInsight.failed}</strong> failed / error</span>
+					<span class="text-amber-400"><strong>{data.deployInsight.inProgress}</strong> in progress / pending</span>
+				</div>
+			{/if}
+			<div class="mt-3 max-h-[20rem] overflow-y-auto rounded-lg border border-border text-sm">
+				<table class="w-full text-left">
+					<thead class="sticky top-0 z-10 bg-secondary/95 backdrop-blur">
+						<tr>
+							<th class="px-3 py-2">When</th>
+							<th class="px-3 py-2">State</th>
+							<th class="px-3 py-2">Env</th>
+							<th class="hidden px-3 py-2 sm:table-cell">Ref</th>
+							<th class="px-3 py-2">SHA</th>
+							<th class="hidden px-3 py-2 md:table-cell">By</th>
+							<th class="px-3 py-2">Links</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each data.deploymentObservations as o}
+							<tr class="border-t border-border/60 align-top">
+								<td class="whitespace-nowrap px-3 py-2 text-muted-foreground">{timeAgo(o.observed_at)}</td>
+								<td class="px-3 py-2 font-medium {deployStateTone(o.state)}">{o.state}</td>
+								<td class="px-3 py-2">{o.environment}</td>
+								<td class="hidden max-w-[120px] truncate px-3 py-2 font-mono text-xs sm:table-cell">{o.ref ?? '—'}</td>
+								<td class="px-3 py-2 font-mono text-xs">{(o.commit_sha ?? '').slice(0, 7)}</td>
+								<td class="hidden px-3 py-2 text-xs text-muted-foreground md:table-cell">{o.creator_login ?? '—'}</td>
+								<td class="px-3 py-2">
+									<div class="flex flex-wrap gap-x-2 gap-y-1">
+										{#if githubDeploymentPageUrl(o.gh_deploy_id)}
+											<a
+												href={githubDeploymentPageUrl(o.gh_deploy_id)!}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Deploy <ExternalLink size={12} /></a
+											>
+										{/if}
+										{#if o.environment_url}
+											<a
+												href={o.environment_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Environment <ExternalLink size={12} /></a
+											>
+										{/if}
+										{#if o.log_url}
+											<a
+												href={o.log_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Logs <ExternalLink size={12} /></a
+											>
+										{/if}
+										{#if o.target_url}
+											<a
+												href={o.target_url}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+												>Target <ExternalLink size={12} /></a
+											>
+										{/if}
+									</div>
+								</td>
+							</tr>
+							<tr class="border-t border-border/40 bg-secondary/20">
+								<td colspan="7" class="px-3 pb-3 pt-0">
+									<p class="pt-2 text-xs font-medium text-muted-foreground">Summary</p>
+									<p class="mt-0.5 text-xs text-foreground/90">{o.description ?? '—'}</p>
+									{#if o.github_status_detail || o.environment_url || o.log_url}
+										<details class="mt-2">
+											<summary class="cursor-pointer text-xs font-medium text-primary hover:underline">
+												Full GitHub status / feedback
+											</summary>
+											<div class="mt-2 space-y-2 rounded border border-border/60 bg-background/50 p-3 text-xs">
+												{#if o.github_status_detail}
+													<pre
+														class="max-h-64 overflow-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-foreground/90"
+														>{o.github_status_detail}</pre
+													>
+												{:else}
+													<p class="text-muted-foreground">No extended description from GitHub for this event.</p>
+												{/if}
+											</div>
+										</details>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+
+		<h3 class="mt-8 text-sm font-semibold text-foreground">GitHub Actions runs (build and checks)</h3>
+		<p class="mt-1 text-sm text-muted-foreground">
+			Recent workflow runs synced from GitHub. Open a run for full logs, steps, and artifacts.
+		</p>
+		{#if !data.recentCiRuns?.length}
+			<p class="mt-2 text-sm text-muted-foreground">No CI runs in the database yet (sync GitHub or trigger workflows).</p>
+		{:else}
+			<div class="mt-3 max-h-72 overflow-y-auto rounded-lg border border-border text-sm">
+				<table class="w-full text-left">
+					<thead class="sticky top-0 bg-secondary/95">
+						<tr>
+							<th class="px-3 py-2">When</th>
+							<th class="px-3 py-2">Workflow</th>
+							<th class="px-3 py-2">Branch</th>
+							<th class="px-3 py-2">Status</th>
+							<th class="px-3 py-2">SHA</th>
+							<th class="px-3 py-2">Logs</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.recentCiRuns as run}
 							<tr class="border-t border-border/60">
-								<td class="px-3 py-1.5 text-muted-foreground">{timeAgo(o.observed_at)}</td>
-								<td class="px-3 py-1.5">{o.environment}</td>
-								<td class="px-3 py-1.5 font-mono text-xs">{o.ref ?? '—'}</td>
-								<td class="px-3 py-1.5 font-mono text-xs">{(o.commit_sha ?? '').slice(0, 7)}</td>
-								<td class="px-3 py-1.5">{o.state}</td>
+								<td class="whitespace-nowrap px-3 py-1.5 text-muted-foreground">{timeAgo(run.created_at)}</td>
+								<td class="max-w-[160px] truncate px-3 py-1.5" title={run.workflow_name}>{run.workflow_name}</td>
+								<td class="px-3 py-1.5 font-mono text-xs">{run.branch || '—'}</td>
+								<td class="px-3 py-1.5 font-medium {ciStatusTone(run.status)}">{run.status}</td>
+								<td class="px-3 py-1.5 font-mono text-xs">{(run.commit_sha ?? '').slice(0, 7)}</td>
+								<td class="px-3 py-1.5">
+									{#if githubActionsRunUrl(run.gh_run_id)}
+										<a
+											href={githubActionsRunUrl(run.gh_run_id)!}
+											target="_blank"
+											rel="noopener noreferrer"
+											class="inline-flex items-center gap-1 text-primary hover:underline"
+											>View run <ExternalLink size={12} /></a
+										>
+									{:else}
+										<span class="text-xs text-muted-foreground">Connect repo for link</span>
+									{/if}
+								</td>
 							</tr>
 						{/each}
 					</tbody>
