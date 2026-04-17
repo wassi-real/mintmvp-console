@@ -5,6 +5,38 @@ import { createServiceRoleClient } from '$lib/supabase/server';
 import { isProjectStaff } from '$lib/server/roles';
 import { logActivity, getActorName } from '$lib/server/activity';
 import { pollRailwayLogsForProject } from '$lib/server/railway/poll-railway-logs';
+import { listRailwayDeployments } from '$lib/server/railway/graphql';
+
+export type RailwayDeployTab = {
+	id: string;
+	status: string;
+	createdAt: string;
+	source: 'railway' | 'logs_only';
+};
+
+function mergeDeploymentTabs(
+	apiRows: { id: string; status: string; createdAt: string }[],
+	entries: Tables<'deploy_log_entries'>[]
+): RailwayDeployTab[] {
+	const byId = new Map<string, RailwayDeployTab>();
+	for (const r of apiRows) {
+		byId.set(r.id, { id: r.id, status: r.status, createdAt: r.createdAt, source: 'railway' });
+	}
+	const lastLog = new Map<string, string>();
+	for (const e of entries) {
+		const id = e.railway_deployment_id;
+		const prev = lastLog.get(id);
+		if (!prev || e.logged_at > prev) lastLog.set(id, e.logged_at);
+	}
+	for (const [id, loggedAt] of lastLog) {
+		if (!byId.has(id)) {
+			byId.set(id, { id, status: 'LOGS', createdAt: loggedAt, source: 'logs_only' });
+		}
+	}
+	return [...byId.values()].sort(
+		(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+	);
+}
 
 export const load: PageServerLoad = async ({ locals, params }) => {
 	const { data: projectGate } = await locals.supabase
@@ -17,6 +49,7 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			railway: null,
 			deployLogEntries: [],
 			deployLogEvents: [],
+			railwayDeploymentsList: [],
 			canManageRailway: false
 		};
 	}
@@ -45,16 +78,42 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			.select('*')
 			.eq('project_id', params.id)
 			.order('logged_at', { ascending: false })
-			.limit(450),
+			.limit(2000),
 		locals.supabase
 			.from('deploy_log_events')
 			.select('*')
 			.eq('project_id', params.id)
 			.order('occurred_at', { ascending: false })
-			.limit(150)
+			.limit(400)
 	]);
 
+	const entryRows = (entries ?? []) as Tables<'deploy_log_entries'>[];
+	const eventRows = (events ?? []) as Tables<'deploy_log_events'>[];
+
+	let railwayDeploymentsList: RailwayDeployTab[] = [];
 	const row = railwayFull;
+	if (row?.api_token?.trim() && row.railway_project_id?.trim() && row.railway_environment_id?.trim() && row.railway_service_id?.trim()) {
+		try {
+			const apiList = await listRailwayDeployments(
+				row.api_token.trim(),
+				{
+					projectId: row.railway_project_id.trim(),
+					environmentId: row.railway_environment_id.trim(),
+					serviceId: row.railway_service_id.trim()
+				},
+				28
+			);
+			railwayDeploymentsList = mergeDeploymentTabs(
+				apiList.map((d) => ({ id: d.id, status: d.status, createdAt: d.createdAt })),
+				entryRows
+			);
+		} catch {
+			railwayDeploymentsList = mergeDeploymentTabs([], entryRows);
+		}
+	} else {
+		railwayDeploymentsList = mergeDeploymentTabs([], entryRows);
+	}
+
 	const canManage =
 		locals.session?.user?.id != null && (await isProjectStaff(locals.supabase, locals.session.user.id));
 
@@ -70,8 +129,9 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 					hasToken: Boolean(row.api_token?.trim())
 				}
 			: null,
-		deployLogEntries: (entries ?? []) as Tables<'deploy_log_entries'>[],
-		deployLogEvents: (events ?? []) as Tables<'deploy_log_events'>[],
+		deployLogEntries: entryRows,
+		deployLogEvents: eventRows,
+		railwayDeploymentsList,
 		canManageRailway: canManage
 	};
 };

@@ -19,6 +19,28 @@
 	let saveBusy = $state(false);
 	let pollBusy = $state(false);
 
+	/** '' = show all deployments; otherwise filter log stream and events to this Railway deployment id. */
+	let selectedDeploymentId = $state('');
+
+	$effect(() => {
+		const list = data.railwayDeploymentsList;
+		if (selectedDeploymentId && !list.some((d) => d.id === selectedDeploymentId)) {
+			selectedDeploymentId = '';
+		}
+	});
+
+	const filteredLogEntries = $derived(
+		selectedDeploymentId
+			? data.deployLogEntries.filter((e) => e.railway_deployment_id === selectedDeploymentId)
+			: data.deployLogEntries
+	);
+
+	const filteredLogEvents = $derived(
+		selectedDeploymentId
+			? data.deployLogEvents.filter((ev) => ev.railway_deployment_id === selectedDeploymentId)
+			: data.deployLogEvents
+	);
+
 	/** Bound fields so saved values re-apply from the server after invalidate (plain `value=` can stick stale). */
 	let railwayProjectId = $state('');
 	let railwayEnvironmentId = $state('');
@@ -63,6 +85,20 @@
 		return t.length <= n ? t : `${t.slice(0, n)}…`;
 	}
 
+	function deployChipActive(id: string) {
+		return selectedDeploymentId === id
+			? 'border-primary bg-primary/15 text-foreground ring-1 ring-primary/40'
+			: 'border-border bg-secondary/40 text-muted-foreground hover:border-border hover:bg-secondary';
+	}
+
+	function deployStatusTone(status: string) {
+		const s = status.toUpperCase();
+		if (s === 'SUCCESS') return 'text-emerald-400';
+		if (s === 'FAILED' || s === 'CRASHED') return 'text-red-400';
+		if (s === 'BUILDING' || s === 'DEPLOYING' || s === 'QUEUED' || s === 'WAITING') return 'text-amber-400';
+		return 'text-muted-foreground';
+	}
+
 	const formError = $derived(
 		form && typeof (form as { error?: string }).error === 'string' ? (form as { error: string }).error : ''
 	);
@@ -79,7 +115,7 @@
 <div>
 	<PageHeader
 		title="Deploy logs"
-		description="Ingest Railway runtime and build logs tied to GitHub-triggered deployments, scan them for errors and readiness signals, and review the stream like a lightweight observability feed."
+		description="Railway runtime and build logs per deployment: pick a deployment below to filter the stream and parsed events, or view All. Polling ingests recent deployments so each has its own log history."
 	/>
 
 	<div class="mt-6 flex flex-wrap gap-2 border-b border-border pb-2">
@@ -114,6 +150,40 @@
 			Railway connection
 		</button>
 	</div>
+
+	{#if data.railwayDeploymentsList.length > 0}
+		<div class="mt-5 rounded-xl border border-border bg-card p-4">
+			<div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+				<div>
+					<p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Deployment</p>
+					<p class="mt-0.5 text-sm text-muted-foreground">
+						Tap a deployment to show only its logs and events on this page. <span class="text-foreground/80">All</span> merges every
+						deployment again.
+					</p>
+				</div>
+			</div>
+			<div class="mt-3 flex max-w-full flex-wrap gap-2 overflow-x-auto pb-1">
+				<button
+					type="button"
+					class="shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors {deployChipActive('')}"
+					onclick={() => (selectedDeploymentId = '')}
+				>
+					All
+				</button>
+				{#each data.railwayDeploymentsList as d}
+					<button
+						type="button"
+						class="shrink-0 rounded-full border px-3 py-1.5 text-left text-xs font-medium transition-colors {deployChipActive(d.id)}"
+						onclick={() => (selectedDeploymentId = d.id)}
+					>
+						<span class="font-mono">{d.id.slice(0, 8)}</span>
+						<span class={`ml-1.5 font-medium ${deployStatusTone(d.status)}`}>{d.status}</span>
+						<span class="ml-1 text-[10px] text-muted-foreground">{timeAgo(d.createdAt)}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	{#if formError}
 		<p class="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-foreground">{formError}</p>
@@ -163,6 +233,11 @@
 				<p class="mt-6 text-sm text-muted-foreground">
 					No log lines yet. Configure Railway under the Connection tab, then pull logs or schedule the cron job below.
 				</p>
+			{:else if !filteredLogEntries.length}
+				<p class="mt-6 text-sm text-muted-foreground">
+					No log lines for this deployment yet. Choose <strong class="text-foreground">All</strong> or another deployment, or run
+					<strong class="text-foreground">Pull logs now</strong> to ingest more history.
+				</p>
 			{:else}
 				<div class="mt-4 max-h-[32rem] overflow-auto rounded-lg border border-border text-xs">
 					<table class="w-full text-left">
@@ -176,7 +251,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each data.deployLogEntries as e}
+							{#each filteredLogEntries as e}
 								<tr class="border-t border-border/60 align-top">
 									<td class="whitespace-nowrap px-2 py-1.5 text-muted-foreground">{timeAgo(e.logged_at)}</td>
 									<td class="px-2 py-1.5 font-mono text-[11px]">{e.log_kind}</td>
@@ -206,6 +281,8 @@
 
 			{#if !data.deployLogEvents.length}
 				<p class="mt-6 text-sm text-muted-foreground">No parsed events yet. Pull logs after new deploy activity.</p>
+			{:else if !filteredLogEvents.length}
+				<p class="mt-6 text-sm text-muted-foreground">No parsed events for this deployment yet. Try another deployment or All.</p>
 			{:else}
 				<div class="mt-4 max-h-[28rem] overflow-auto rounded-lg border border-border text-sm">
 					<table class="w-full text-left">
@@ -219,7 +296,7 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each data.deployLogEvents as ev}
+							{#each filteredLogEvents as ev}
 								<tr class="border-t border-border/60 align-top">
 									<td class="whitespace-nowrap px-3 py-2 text-xs text-muted-foreground">{timeAgo(ev.occurred_at)}</td>
 									<td class="px-3 py-2 font-mono text-xs">{ev.kind}</td>

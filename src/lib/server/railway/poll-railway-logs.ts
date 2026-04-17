@@ -135,10 +135,10 @@ export async function pollRailwayLogsForProject(
 	const deployments = await listRailwayDeployments(
 		token,
 		{ projectId: pid, environmentId: eid, serviceId: sid },
-		18
+		30
 	);
 	deployments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-	const top = deployments.slice(0, 5);
+	const top = deployments.slice(0, 20);
 
 	let linesInserted = 0;
 	let eventsInserted = 0;
