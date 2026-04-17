@@ -23,12 +23,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isRootRoute = event.url.pathname === '/';
 	const isPublicMonitoringStatus =
 		event.url.pathname.startsWith('/status/') && event.url.pathname.length > '/status/'.length;
+	const isCronApi = event.url.pathname.startsWith('/api/cron/');
 
 	if (isRootRoute) {
 		throw redirect(303, session ? '/dashboard' : '/login');
 	}
 
-	if (!session && !isAuthRoute && !isPublicMonitoringStatus) {
+	if (!session && !isAuthRoute && !isPublicMonitoringStatus && !isCronApi) {
 		throw redirect(303, '/login');
 	}
 

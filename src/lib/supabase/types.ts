@@ -382,6 +382,123 @@ export type Database = {
 					creator_login?: string | null;
 				};
 			};
+			project_integrations_railway: {
+				Row: {
+					id: string;
+					project_id: string;
+					api_token: string;
+					railway_project_id: string;
+					railway_environment_id: string;
+					railway_service_id: string;
+					enabled: boolean;
+					last_poll_at: string | null;
+					last_poll_error: string | null;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					api_token?: string;
+					railway_project_id?: string;
+					railway_environment_id?: string;
+					railway_service_id?: string;
+					enabled?: boolean;
+					last_poll_at?: string | null;
+					last_poll_error?: string | null;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					api_token?: string;
+					railway_project_id?: string;
+					railway_environment_id?: string;
+					railway_service_id?: string;
+					enabled?: boolean;
+					last_poll_at?: string | null;
+					last_poll_error?: string | null;
+					created_at?: string;
+					updated_at?: string;
+				};
+			};
+			deploy_log_entries: {
+				Row: {
+					id: string;
+					project_id: string;
+					railway_deployment_id: string;
+					log_kind: string;
+					logged_at: string;
+					message: string;
+					severity: string | null;
+					attributes: Record<string, unknown>;
+					dedupe_key: string;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					railway_deployment_id: string;
+					log_kind?: string;
+					logged_at: string;
+					message: string;
+					severity?: string | null;
+					attributes?: Record<string, unknown>;
+					dedupe_key: string;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					railway_deployment_id?: string;
+					log_kind?: string;
+					logged_at?: string;
+					message?: string;
+					severity?: string | null;
+					attributes?: Record<string, unknown>;
+					dedupe_key?: string;
+					created_at?: string;
+				};
+			};
+			deploy_log_events: {
+				Row: {
+					id: string;
+					project_id: string;
+					railway_deployment_id: string | null;
+					kind: string;
+					severity: string;
+					title: string;
+					detail: string | null;
+					occurred_at: string;
+					source_entry_id: string | null;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					railway_deployment_id?: string | null;
+					kind: string;
+					severity?: string;
+					title: string;
+					detail?: string | null;
+					occurred_at: string;
+					source_entry_id?: string | null;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					railway_deployment_id?: string | null;
+					kind?: string;
+					severity?: string;
+					title?: string;
+					detail?: string | null;
+					occurred_at?: string;
+					source_entry_id?: string | null;
+					created_at?: string;
+				};
+			};
 			monitoring_check_runs: {
 				Row: {
 					id: string;

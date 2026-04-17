@@ -25,6 +25,7 @@
 		if (path.endsWith('/tests')) return 'Tests';
 		if (path.endsWith('/environments')) return 'Environments';
 		if (path.endsWith('/monitoring')) return 'Monitoring';
+		if (path.endsWith('/deploy-logs')) return 'Deploy logs';
 		if (path.endsWith('/incidents')) return 'Incidents';
 		if (path.endsWith('/activity')) return 'Activity';
 		if (path.endsWith('/finance')) return 'Finance';

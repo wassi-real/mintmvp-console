@@ -15,6 +15,7 @@
 		Github,
 		Play,
 		Settings2,
+		ScrollText,
 		X
 	} from 'lucide-svelte';
 	import { page } from '$app/stores';
@@ -52,6 +53,7 @@
 			heading: 'Operations',
 			links: [
 				{ path: '/monitoring', label: 'Monitoring', icon: HeartPulse },
+				{ path: '/deploy-logs', label: 'Deploy logs', icon: ScrollText },
 				{ path: '/incidents', label: 'Incidents', icon: AlertTriangle },
 				{ path: '/activity', label: 'Activity', icon: Activity }
 			]
