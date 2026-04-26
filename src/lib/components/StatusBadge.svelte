@@ -58,6 +58,18 @@
 		ready_for_payment: 'bg-amber-900/60 text-amber-300',
 		paid: 'bg-green-900/60 text-green-300',
 		overdue: 'bg-red-900/60 text-red-300',
+		// milestone work phase / slices / bill
+		scoping: 'bg-indigo-900/60 text-indigo-300',
+		complete: 'bg-emerald-900/60 text-emerald-300',
+		blocked: 'bg-red-900/60 text-red-300',
+		todo: 'bg-zinc-700 text-zinc-200',
+		done: 'bg-green-900/60 text-green-300',
+		sent: 'bg-blue-900/60 text-blue-300',
+		// milestone priority (stored with underscores)
+		p1_critical: 'bg-red-900/60 text-red-300',
+		p2_high: 'bg-orange-900/60 text-orange-300',
+		p3_normal: 'bg-zinc-700 text-zinc-200',
+		p4_low: 'bg-zinc-600 text-zinc-300',
 		// finance — payment methods
 		wise: 'bg-emerald-900/60 text-emerald-300',
 		bank_transfer: 'bg-sky-900/60 text-sky-300',

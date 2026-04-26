@@ -152,7 +152,7 @@ export const actions: Actions = {
 		if (error) return fail(500, { error: error.message });
 
 		for (const table of ['github_branches', 'github_pull_requests', 'github_commits', 'github_ci_runs', 'github_deployments']) {
-			await (admin.from(table) as any).delete().eq('project_id', params.id);
+			await ((admin as any).from(table) as any).delete().eq('project_id', params.id);
 		}
 
 		await logActivity(locals.supabase, params.id, 'GitHub integration disconnected', getActorName(locals.session!));

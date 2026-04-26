@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { fade } from 'svelte/transition';
 	import { enhance } from '$app/forms';
 	import Modal from '$lib/components/Modal.svelte';
+	import Markdown from '$lib/components/Markdown.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
 	import StatCard from '$lib/components/StatCard.svelte';
 	import {
@@ -14,9 +17,11 @@
 		CircleDollarSign,
 		Clock,
 		CheckCircle2,
-		AlertTriangle
+		AlertTriangle,
+		Eye
 	} from 'lucide-svelte';
 	import type { Tables } from '$lib/supabase/types';
+	import type { MilestoneWithRelations } from './+page.server';
 
 	let { data } = $props();
 
@@ -71,8 +76,35 @@
 	let msCreateOpen = $state(false);
 	let msEditOpen = $state(false);
 	let msDeleteOpen = $state(false);
-	let msEditing: Tables<'milestones'> | null = $state(null);
+	let msEditing: MilestoneWithRelations | null = $state(null);
 	let msDeletingId = $state('');
+
+	type SliceRow = { title: string; status: string };
+	let msCreateSlices = $state<SliceRow[]>([{ title: '', status: 'todo' }]);
+	let msEditSlices = $state<SliceRow[]>([{ title: '', status: 'todo' }]);
+	let msCreateTitle = $state('');
+	let msCreateDescription = $state('');
+	let msEditTitle = $state('');
+	let msEditDescription = $state('');
+
+	type MsPreviewData =
+		| { kind: 'saved'; milestone: MilestoneWithRelations }
+		| { kind: 'draft'; title: string; description: string; slices: SliceRow[] };
+
+	let msPreviewOpen = $state(false);
+	let msPreviewData = $state<MsPreviewData | null>(null);
+
+	let msCreateSuccessFlash = $state(false);
+	let msCreateSuccessTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function flashMilestoneCreated() {
+		if (msCreateSuccessTimer) clearTimeout(msCreateSuccessTimer);
+		msCreateSuccessFlash = true;
+		msCreateSuccessTimer = setTimeout(() => {
+			msCreateSuccessFlash = false;
+			msCreateSuccessTimer = undefined;
+		}, 3200);
+	}
 
 	/* ── Payment CRUD state ──────────────────────────── */
 	let payCreateOpen = $state(false);
@@ -89,6 +121,59 @@
 	let expDeletingId = $state('');
 
 	const MILESTONE_STATUSES = ['planned', 'active', 'ready_for_payment', 'paid', 'overdue'] as const;
+
+	const PRIORITY_OPTIONS = [
+		{ value: 'p1_critical', label: 'P1 Critical' },
+		{ value: 'p2_high', label: 'P2 High' },
+		{ value: 'p3_normal', label: 'P3 Normal' },
+		{ value: 'p4_low', label: 'P4 Low' }
+	] as const;
+
+	const PHASE_OPTIONS = [
+		{ value: 'planned', label: 'Planned' },
+		{ value: 'scoping', label: 'Scoping' },
+		{ value: 'in_progress', label: 'In Progress' },
+		{ value: 'testing', label: 'Testing' },
+		{ value: 'review', label: 'Review' },
+		{ value: 'complete', label: 'Complete' },
+		{ value: 'blocked', label: 'Blocked' }
+	] as const;
+
+	const SLICE_STATUS_OPTIONS = [
+		{ value: 'todo', label: 'To do' },
+		{ value: 'in_progress', label: 'In progress' },
+		{ value: 'done', label: 'Done' },
+		{ value: 'blocked', label: 'Blocked' }
+	] as const;
+
+	function milestonePhase(m: MilestoneWithRelations): string {
+		return m.phase ?? 'planned';
+	}
+
+	function milestonePriority(m: MilestoneWithRelations): string {
+		return m.priority ?? 'p3_normal';
+	}
+
+	function slicesJsonPayload(rows: SliceRow[]) {
+		return JSON.stringify(
+			rows
+				.map((s) => ({ title: s.title.trim(), status: s.status }))
+				.filter((s) => s.title.length > 0)
+		);
+	}
+
+	function plainDescriptionSnippet(md: string, max = 140) {
+		return md
+			.replace(/```[\s\S]*?```/g, ' ')
+			.replace(/`[^`]+`/g, ' ')
+			.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+			.replace(/^#{1,6}\s+/gm, '')
+			.replace(/[*_~>#-]/g, '')
+			.replace(/\s+/g, ' ')
+			.trim()
+			.slice(0, max);
+	}
+
 	const PAYMENT_METHODS = ['wise', 'bank_transfer', 'paypal', 'stripe', 'cash', 'other'] as const;
 	const EXPENSE_CATEGORIES = [
 		'developer',
@@ -226,13 +311,30 @@
 {:else if activeTab === 'milestones'}
 	<div class="mt-4 flex items-center justify-end">
 		<button
-			onclick={() => (msCreateOpen = true)}
+			onclick={() => {
+				msCreateSlices = [{ title: '', status: 'todo' }];
+				msCreateTitle = '';
+				msCreateDescription = '';
+				msCreateOpen = true;
+			}}
 			class="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
 		>
 			<Plus size={16} />
 			Add Milestone
 		</button>
 	</div>
+
+	{#if msCreateSuccessFlash}
+		<div
+			transition:fade={{ duration: 200 }}
+			class="mt-3 flex items-center gap-2.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-200"
+			role="status"
+			aria-live="polite"
+		>
+			<CheckCircle2 size={20} class="shrink-0 text-emerald-400" strokeWidth={2.25} />
+			<span>Milestone created successfully</span>
+		</div>
+	{/if}
 
 	{#if data.milestones.length === 0}
 		<div class="mt-12 text-center">
@@ -249,20 +351,50 @@
 						<div class="min-w-0 flex-1">
 							<p class="text-base font-semibold text-foreground">{ms.title}</p>
 							<p class="mt-1 text-lg font-bold text-foreground">{fmt(Number(ms.amount))}</p>
+							<div class="mt-2 flex flex-wrap gap-1.5">
+								<StatusBadge status={milestonePhase(ms)} size="sm" />
+								<StatusBadge status={milestonePriority(ms)} size="sm" />
+								{#if ms.slices.length > 0}
+									<span
+										class="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground"
+									>
+										{ms.slices.length} slice{ms.slices.length === 1 ? '' : 's'}
+									</span>
+								{/if}
+							</div>
 						</div>
 						<StatusBadge status={ms.status} size="sm" />
 					</div>
 					{#if ms.description}
-						<p class="mt-2 text-sm text-muted-foreground line-clamp-2">{ms.description}</p>
+						<p class="mt-2 text-sm text-muted-foreground line-clamp-2">
+							{plainDescriptionSnippet(ms.description)}
+						</p>
 					{/if}
 					<div class="mt-3 flex items-center justify-between text-xs text-muted-foreground">
 						<span>Due: {fmtDate(ms.due_date)}</span>
 						<span>Paid: {fmtDate(ms.paid_date)}</span>
 					</div>
-					<div class="mt-3 flex gap-2">
+					<div class="mt-3 flex flex-wrap gap-2">
+						<button
+							type="button"
+							onclick={() => {
+								msPreviewData = { kind: 'saved', milestone: ms };
+								msPreviewOpen = true;
+							}}
+							class="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
+						>
+							<Eye size={14} />
+							Preview
+						</button>
 						<button
 							onclick={() => {
 								msEditing = ms;
+								msEditTitle = ms.title;
+								msEditDescription = ms.description ?? '';
+								msEditSlices =
+									ms.slices.length > 0
+										? ms.slices.map((s) => ({ title: s.title, status: s.status }))
+										: [{ title: '', status: 'todo' }];
 								msEditOpen = true;
 							}}
 							class="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"
@@ -290,17 +422,25 @@
 					<tr>
 						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground">Milestone</th>
 						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground">Amount</th>
-						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground">Status</th>
+						<th
+							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground lg:table-cell"
+							>Phase</th
+						>
+						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground">Pay status</th>
 						<th
 							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground md:table-cell"
 						>
 							Due Date
 						</th>
 						<th
-							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground lg:table-cell"
+							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground xl:table-cell"
 						>
 							Paid Date
 						</th>
+						<th
+							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground lg:table-cell"
+							>Slices</th
+						>
 						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground"></th>
 					</tr>
 				</thead>
@@ -311,27 +451,54 @@
 								<p class="text-sm font-medium text-foreground">{ms.title}</p>
 								{#if ms.description}
 									<p class="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-										{ms.description}
+										{plainDescriptionSnippet(ms.description, 100)}
 									</p>
 								{/if}
+								<div class="mt-1 flex flex-wrap gap-1 lg:hidden">
+									<StatusBadge status={milestonePhase(ms)} size="sm" />
+									<StatusBadge status={milestonePriority(ms)} size="sm" />
+								</div>
 							</td>
 							<td class="px-4 py-3 text-sm font-semibold text-foreground"
 								>{fmt(Number(ms.amount))}</td
 							>
+							<td class="hidden px-4 py-3 lg:table-cell">
+								<StatusBadge status={milestonePhase(ms)} size="sm" />
+							</td>
 							<td class="px-4 py-3"><StatusBadge status={ms.status} size="sm" /></td>
 							<td
 								class="hidden px-4 py-3 text-sm text-muted-foreground md:table-cell"
 								>{fmtDate(ms.due_date)}</td
 							>
 							<td
-								class="hidden px-4 py-3 text-sm text-muted-foreground lg:table-cell"
+								class="hidden px-4 py-3 text-sm text-muted-foreground xl:table-cell"
 								>{fmtDate(ms.paid_date)}</td
 							>
+							<td class="hidden px-4 py-3 text-sm text-muted-foreground lg:table-cell">
+								{ms.slices.length}
+							</td>
 							<td class="px-4 py-3">
 								<div class="flex items-center gap-1">
 									<button
+										type="button"
+										onclick={() => {
+											msPreviewData = { kind: 'saved', milestone: ms };
+											msPreviewOpen = true;
+										}}
+										class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+										aria-label="Preview milestone"
+									>
+										<Eye size={14} />
+									</button>
+									<button
 										onclick={() => {
 											msEditing = ms;
+											msEditTitle = ms.title;
+											msEditDescription = ms.description ?? '';
+											msEditSlices =
+												ms.slices.length > 0
+													? ms.slices.map((s) => ({ title: s.title, status: s.status }))
+													: [{ title: '', status: 'todo' }];
 											msEditOpen = true;
 										}}
 										class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -629,98 +796,268 @@
 		method="POST"
 		action="?/createMilestone"
 		use:enhance={() => {
-			return async ({ update }) => {
+			return async ({ result, update }) => {
 				await update();
-				msCreateOpen = false;
+				await tick();
+				if (result.type === 'success') {
+					msCreateOpen = false;
+					flashMilestoneCreated();
+					msCreateTitle = '';
+					msCreateDescription = '';
+					msCreateSlices = [{ title: '', status: 'todo' }];
+				}
 			};
 		}}
-		class="space-y-4"
+		class="flex max-h-[min(70vh,36rem)] flex-col"
 	>
-		<div>
-			<label for="ms-c-title" class="mb-1 block text-sm font-medium text-foreground">Title *</label
-			>
-			<input
-				id="ms-c-title"
-				name="title"
-				required
-				class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-			/>
-		</div>
-		<div>
-			<label for="ms-c-desc" class="mb-1 block text-sm font-medium text-foreground"
-				>Description</label
-			>
-			<textarea
-				id="ms-c-desc"
-				name="description"
-				rows="2"
-				class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-			></textarea>
-		</div>
-		<div class="grid grid-cols-2 gap-4">
+		<input type="hidden" name="slices_json" value={slicesJsonPayload(msCreateSlices)} />
+		<div class="space-y-4 overflow-y-auto pr-1">
+			<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Required</p>
 			<div>
-				<label for="ms-c-amount" class="mb-1 block text-sm font-medium text-foreground"
-					>Amount ($)</label
-				>
+				<label for="ms-c-title" class="mb-1 block text-sm font-medium text-foreground">Title *</label>
 				<input
-					id="ms-c-amount"
-					name="amount"
-					type="number"
-					step="0.01"
-					min="0"
-					value="0"
+					id="ms-c-title"
+					name="title"
+					required
+					bind:value={msCreateTitle}
 					class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
 				/>
 			</div>
 			<div>
-				<label for="ms-c-status" class="mb-1 block text-sm font-medium text-foreground"
-					>Status</label
-				>
-				<select
-					id="ms-c-status"
-					name="status"
-					class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-				>
-					{#each MILESTONE_STATUSES as s}
-						<option value={s}>{s.replace(/_/g, ' ')}</option>
+				<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+					<label for="ms-c-desc" class="block text-sm font-medium text-foreground">Description *</label>
+					<button
+						type="button"
+						onclick={() => {
+							msPreviewData = {
+								kind: 'draft',
+								title: msCreateTitle,
+								description: msCreateDescription,
+								slices: msCreateSlices.map((s) => ({ ...s }))
+							};
+							msPreviewOpen = true;
+						}}
+						class="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+					>
+						<Eye size={14} />
+						Preview
+					</button>
+				</div>
+				<p class="mb-1.5 text-xs text-muted-foreground">
+					Markdown supported (headings, lists, links, code blocks, etc.).
+				</p>
+				<textarea
+					id="ms-c-desc"
+					name="description"
+					rows="6"
+					required
+					bind:value={msCreateDescription}
+					placeholder="What this milestone is supposed to accomplish&#10;&#10;Example:&#10;- Goal one&#10;- **Bold** emphasis"
+					class="min-h-[8rem] w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground"
+				></textarea>
+			</div>
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div>
+					<label for="ms-c-priority" class="mb-1 block text-sm font-medium text-foreground"
+						>Priority *</label
+					>
+					<select
+						id="ms-c-priority"
+						name="priority"
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+					>
+						{#each PRIORITY_OPTIONS as p}
+							<option value={p.value}>{p.label}</option>
+						{/each}
+					</select>
+				</div>
+				<div>
+					<label for="ms-c-phase" class="mb-1 block text-sm font-medium text-foreground"
+						>Phase *</label
+					>
+					<select
+						id="ms-c-phase"
+						name="phase"
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+					>
+						{#each PHASE_OPTIONS as p}
+							<option value={p.value}>{p.label}</option>
+						{/each}
+					</select>
+				</div>
+			</div>
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div>
+					<label for="ms-c-est" class="mb-1 block text-sm font-medium text-foreground"
+						>Estimate *</label
+					>
+					<input
+						id="ms-c-est"
+						name="estimate"
+						required
+						placeholder="e.g. 2 days, 12 hours, 1 week"
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+					/>
+				</div>
+				<div>
+					<label for="ms-c-due" class="mb-1 block text-sm font-medium text-foreground"
+						>Due date *</label
+					>
+					<input
+						id="ms-c-due"
+						name="due_date"
+						type="date"
+						required
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+					/>
+				</div>
+			</div>
+
+			<div class="rounded-lg border border-border bg-secondary/30 p-4">
+				<p class="text-sm font-medium text-foreground">Slices</p>
+				<p class="mt-0.5 text-xs text-muted-foreground">Small parts inside this milestone.</p>
+				<div class="mt-3 space-y-2">
+					{#each msCreateSlices as row, i (i)}
+						<div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+							<input
+								bind:value={row.title}
+								placeholder="Slice title"
+								class="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+							/>
+							<select
+								bind:value={row.status}
+								class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-40"
+							>
+								{#each SLICE_STATUS_OPTIONS as s}
+									<option value={s.value}>{s.label}</option>
+								{/each}
+							</select>
+							<button
+								type="button"
+								onclick={() => {
+									msCreateSlices = msCreateSlices.filter((_, j) => j !== i);
+									if (msCreateSlices.length === 0) msCreateSlices = [{ title: '', status: 'todo' }];
+								}}
+								class="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary"
+							>
+								Remove
+							</button>
+						</div>
 					{/each}
-				</select>
-			</div>
-		</div>
-		<div class="grid grid-cols-2 gap-4">
-			<div>
-				<label for="ms-c-due" class="mb-1 block text-sm font-medium text-foreground"
-					>Due Date</label
+				</div>
+				<button
+					type="button"
+					onclick={() => {
+						msCreateSlices = [...msCreateSlices, { title: '', status: 'todo' }];
+					}}
+					class="mt-3 text-sm font-medium text-primary hover:underline"
 				>
-				<input
-					id="ms-c-due"
-					name="due_date"
-					type="date"
-					class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-				/>
+					+ Add slice
+				</button>
 			</div>
+
+			<p class="pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Optional</p>
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+				<div>
+					<label for="ms-c-spec" class="mb-1 block text-sm font-medium text-foreground"
+						>Linked spec</label
+					>
+					<select
+						id="ms-c-spec"
+						name="spec_id"
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+					>
+						<option value="">None</option>
+						{#each data.specs as sp}
+							<option value={sp.id}>{sp.title}</option>
+						{/each}
+					</select>
+				</div>
+				<div>
+					<label for="ms-c-owner" class="mb-1 block text-sm font-medium text-foreground">Owner</label>
+					<select
+						id="ms-c-owner"
+						name="owner_user_id"
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+					>
+						<option value="">None</option>
+						{#each data.orgUsers as u}
+							<option value={u.id}>{u.full_name}</option>
+						{/each}
+					</select>
+				</div>
+			</div>
+			{#if data.tasks.length > 0}
+				<div>
+					<p class="mb-2 text-sm font-medium text-foreground">Linked tasks</p>
+					<div class="max-h-36 space-y-2 overflow-y-auto rounded-lg border border-border bg-background p-3">
+						{#each data.tasks as t}
+							<label class="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+								<input type="checkbox" name="linked_task_id" value={t.id} class="rounded border-border" />
+								<span class="truncate">{t.title}</span>
+							</label>
+						{/each}
+					</div>
+				</div>
+			{/if}
 			<div>
-				<label for="ms-c-paid" class="mb-1 block text-sm font-medium text-foreground"
-					>Paid Date</label
-				>
-				<input
-					id="ms-c-paid"
-					name="paid_date"
-					type="date"
+				<label for="ms-c-notes" class="mb-1 block text-sm font-medium text-foreground">Notes</label>
+				<textarea
+					id="ms-c-notes"
+					name="notes"
+					rows="2"
 					class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-				/>
+				></textarea>
+			</div>
+
+			<div class="rounded-lg border border-dashed border-border p-4">
+				<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+					Payment tracking (optional)
+				</p>
+				<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div>
+						<label for="ms-c-amount" class="mb-1 block text-sm font-medium text-foreground"
+							>Budget amount ($)</label
+						>
+						<input
+							id="ms-c-amount"
+							name="amount"
+							type="number"
+							step="0.01"
+							min="0"
+							value="0"
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						/>
+					</div>
+					<div>
+						<label for="ms-c-status" class="mb-1 block text-sm font-medium text-foreground"
+							>Payment status</label
+						>
+						<select
+							id="ms-c-status"
+							name="status"
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						>
+							{#each MILESTONE_STATUSES as s}
+								<option value={s}>{s.replace(/_/g, ' ')}</option>
+							{/each}
+						</select>
+					</div>
+				</div>
+				<div class="mt-3">
+					<label for="ms-c-paid" class="mb-1 block text-sm font-medium text-foreground"
+						>Paid date</label
+					>
+					<input
+						id="ms-c-paid"
+						name="paid_date"
+						type="date"
+						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:max-w-xs"
+					/>
+				</div>
 			</div>
 		</div>
-		<div>
-			<label for="ms-c-notes" class="mb-1 block text-sm font-medium text-foreground">Notes</label>
-			<textarea
-				id="ms-c-notes"
-				name="notes"
-				rows="2"
-				class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-			></textarea>
-		</div>
-		<div class="flex justify-end gap-3 pt-2">
+		<div class="mt-4 flex shrink-0 justify-end gap-3 border-t border-border pt-4">
 			<button
 				type="button"
 				onclick={() => (msCreateOpen = false)}
@@ -748,104 +1085,283 @@
 					msEditOpen = false;
 				};
 			}}
-			class="space-y-4"
+			class="flex max-h-[min(70vh,36rem)] flex-col"
 		>
 			<input type="hidden" name="id" value={msEditing.id} />
-			<div>
-				<label for="ms-e-title" class="mb-1 block text-sm font-medium text-foreground"
-					>Title *</label
-				>
-				<input
-					id="ms-e-title"
-					name="title"
-					required
-					value={msEditing.title}
-					class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-				/>
-			</div>
-			<div>
-				<label for="ms-e-desc" class="mb-1 block text-sm font-medium text-foreground"
-					>Description</label
-				>
-				<textarea
-					id="ms-e-desc"
-					name="description"
-					rows="2"
-					class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-					>{msEditing.description}</textarea
-				>
-			</div>
-			<div class="grid grid-cols-2 gap-4">
+			<input type="hidden" name="slices_json" value={slicesJsonPayload(msEditSlices)} />
+			<div class="space-y-4 overflow-y-auto pr-1">
+				<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Required</p>
 				<div>
-					<label for="ms-e-amount" class="mb-1 block text-sm font-medium text-foreground"
-						>Amount ($)</label
+					<label for="ms-e-title" class="mb-1 block text-sm font-medium text-foreground"
+						>Title *</label
 					>
 					<input
-						id="ms-e-amount"
-						name="amount"
-						type="number"
-						step="0.01"
-						min="0"
-						value={msEditing.amount}
+						id="ms-e-title"
+						name="title"
+						required
+						bind:value={msEditTitle}
 						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
 					/>
 				</div>
 				<div>
-					<label for="ms-e-status" class="mb-1 block text-sm font-medium text-foreground"
-						>Status</label
-					>
-					<select
-						id="ms-e-status"
-						name="status"
-						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-					>
-						{#each MILESTONE_STATUSES as s}
-							<option value={s} selected={msEditing.status === s}
-								>{s.replace(/_/g, ' ')}</option
-							>
+					<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+						<label for="ms-e-desc" class="block text-sm font-medium text-foreground"
+							>Description *</label
+						>
+						<button
+							type="button"
+							onclick={() => {
+								msPreviewData = {
+									kind: 'draft',
+									title: msEditTitle,
+									description: msEditDescription,
+									slices: msEditSlices.map((s) => ({ ...s }))
+								};
+								msPreviewOpen = true;
+							}}
+							class="flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+						>
+							<Eye size={14} />
+							Preview
+						</button>
+					</div>
+					<p class="mb-1.5 text-xs text-muted-foreground">
+						Markdown supported (headings, lists, links, code blocks, etc.).
+					</p>
+					<textarea
+						id="ms-e-desc"
+						name="description"
+						rows="6"
+						required
+						bind:value={msEditDescription}
+						class="min-h-[8rem] w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground"
+					></textarea>
+				</div>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div>
+						<label for="ms-e-priority" class="mb-1 block text-sm font-medium text-foreground"
+							>Priority *</label
+						>
+						<select
+							id="ms-e-priority"
+							name="priority"
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						>
+							{#each PRIORITY_OPTIONS as p}
+								<option value={p.value} selected={p.value === milestonePriority(msEditing)}
+									>{p.label}</option
+								>
+							{/each}
+						</select>
+					</div>
+					<div>
+						<label for="ms-e-phase" class="mb-1 block text-sm font-medium text-foreground"
+							>Phase *</label
+						>
+						<select
+							id="ms-e-phase"
+							name="phase"
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						>
+							{#each PHASE_OPTIONS as p}
+								<option value={p.value} selected={p.value === milestonePhase(msEditing)}
+									>{p.label}</option
+								>
+							{/each}
+						</select>
+					</div>
+				</div>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div>
+						<label for="ms-e-est" class="mb-1 block text-sm font-medium text-foreground"
+							>Estimate *</label
+						>
+						<input
+							id="ms-e-est"
+							name="estimate"
+							required
+							value={msEditing.estimate ?? ''}
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						/>
+					</div>
+					<div>
+						<label for="ms-e-due" class="mb-1 block text-sm font-medium text-foreground"
+							>Due date *</label
+						>
+						<input
+							id="ms-e-due"
+							name="due_date"
+							type="date"
+							required
+							value={msEditing.due_date ?? ''}
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						/>
+					</div>
+				</div>
+
+				<div class="rounded-lg border border-border bg-secondary/30 p-4">
+					<p class="text-sm font-medium text-foreground">Slices</p>
+					<p class="mt-0.5 text-xs text-muted-foreground">Small parts inside this milestone.</p>
+					<div class="mt-3 space-y-2">
+						{#each msEditSlices as row, i (i)}
+							<div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+								<input
+									bind:value={row.title}
+									placeholder="Slice title"
+									class="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+								/>
+								<select
+									bind:value={row.status}
+									class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:w-40"
+								>
+									{#each SLICE_STATUS_OPTIONS as s}
+										<option value={s.value}>{s.label}</option>
+									{/each}
+								</select>
+								<button
+									type="button"
+									onclick={() => {
+										msEditSlices = msEditSlices.filter((_, j) => j !== i);
+										if (msEditSlices.length === 0) msEditSlices = [{ title: '', status: 'todo' }];
+									}}
+									class="rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-secondary"
+								>
+									Remove
+								</button>
+							</div>
 						{/each}
-					</select>
-				</div>
-			</div>
-			<div class="grid grid-cols-2 gap-4">
-				<div>
-					<label for="ms-e-due" class="mb-1 block text-sm font-medium text-foreground"
-						>Due Date</label
+					</div>
+					<button
+						type="button"
+						onclick={() => {
+							msEditSlices = [...msEditSlices, { title: '', status: 'todo' }];
+						}}
+						class="mt-3 text-sm font-medium text-primary hover:underline"
 					>
-					<input
-						id="ms-e-due"
-						name="due_date"
-						type="date"
-						value={msEditing.due_date ?? ''}
-						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-					/>
+						+ Add slice
+					</button>
 				</div>
+
+				<p class="pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Optional</p>
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					<div>
+						<label for="ms-e-spec" class="mb-1 block text-sm font-medium text-foreground"
+							>Linked spec</label
+						>
+						<select
+							id="ms-e-spec"
+							name="spec_id"
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						>
+							<option value="" selected={!msEditing.spec_id}>None</option>
+							{#each data.specs as sp}
+								<option value={sp.id} selected={msEditing.spec_id === sp.id}>{sp.title}</option>
+							{/each}
+						</select>
+					</div>
+					<div>
+						<label for="ms-e-owner" class="mb-1 block text-sm font-medium text-foreground"
+							>Owner</label
+						>
+						<select
+							id="ms-e-owner"
+							name="owner_user_id"
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+						>
+							<option value="" selected={!msEditing.owner_user_id}>None</option>
+							{#each data.orgUsers as u}
+								<option value={u.id} selected={msEditing.owner_user_id === u.id}
+									>{u.full_name}</option
+								>
+							{/each}
+						</select>
+					</div>
+				</div>
+				{#if data.tasks.length > 0}
+					<div>
+						<p class="mb-2 text-sm font-medium text-foreground">Linked tasks</p>
+						<div
+							class="max-h-36 space-y-2 overflow-y-auto rounded-lg border border-border bg-background p-3"
+						>
+							{#each data.tasks as t}
+								<label class="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+									<input
+										type="checkbox"
+										name="linked_task_id"
+										value={t.id}
+										checked={msEditing.linked_task_ids.includes(t.id)}
+										class="rounded border-border"
+									/>
+									<span class="truncate">{t.title}</span>
+								</label>
+							{/each}
+						</div>
+					</div>
+				{/if}
 				<div>
-					<label for="ms-e-paid" class="mb-1 block text-sm font-medium text-foreground"
-						>Paid Date</label
+					<label for="ms-e-notes" class="mb-1 block text-sm font-medium text-foreground"
+						>Notes</label
 					>
-					<input
-						id="ms-e-paid"
-						name="paid_date"
-						type="date"
-						value={msEditing.paid_date ?? ''}
+					<textarea
+						id="ms-e-notes"
+						name="notes"
+						rows="2"
 						class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-					/>
+						>{msEditing.notes}</textarea
+					>
+				</div>
+
+				<div class="rounded-lg border border-dashed border-border p-4">
+					<p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+						Payment tracking (optional)
+					</p>
+					<div class="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+						<div>
+							<label for="ms-e-amount" class="mb-1 block text-sm font-medium text-foreground"
+								>Budget amount ($)</label
+							>
+							<input
+								id="ms-e-amount"
+								name="amount"
+								type="number"
+								step="0.01"
+								min="0"
+								value={msEditing.amount}
+								class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+							/>
+						</div>
+						<div>
+							<label for="ms-e-status" class="mb-1 block text-sm font-medium text-foreground"
+								>Payment status</label
+							>
+							<select
+								id="ms-e-status"
+								name="status"
+								class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+							>
+								{#each MILESTONE_STATUSES as s}
+									<option value={s} selected={msEditing.status === s}
+										>{s.replace(/_/g, ' ')}</option
+									>
+								{/each}
+							</select>
+						</div>
+					</div>
+					<div class="mt-3">
+						<label for="ms-e-paid" class="mb-1 block text-sm font-medium text-foreground"
+							>Paid date</label
+						>
+						<input
+							id="ms-e-paid"
+							name="paid_date"
+							type="date"
+							value={msEditing.paid_date ?? ''}
+							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground sm:max-w-xs"
+						/>
+					</div>
 				</div>
 			</div>
-			<div>
-				<label for="ms-e-notes" class="mb-1 block text-sm font-medium text-foreground"
-					>Notes</label
-				>
-				<textarea
-					id="ms-e-notes"
-					name="notes"
-					rows="2"
-					class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
-					>{msEditing.notes}</textarea
-				>
-			</div>
-			<div class="flex justify-end gap-3 pt-2">
+			<div class="mt-4 flex shrink-0 justify-end gap-3 border-t border-border pt-4">
 				<button
 					type="button"
 					onclick={() => (msEditOpen = false)}
@@ -860,6 +1376,81 @@
 			</div>
 		</form>
 	{/if}
+</Modal>
+
+<!-- ── Milestone preview (markdown) ─────────────── -->
+<Modal bind:open={msPreviewOpen} title="Milestone preview">
+	{#if msPreviewData && msPreviewData.kind === 'saved'}
+		{@const m = msPreviewData.milestone}
+		<div class="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto pr-1">
+			<h3 class="text-lg font-semibold text-foreground">{m.title}</h3>
+			<div class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+				<StatusBadge status={milestonePhase(m)} size="sm" />
+				<StatusBadge status={milestonePriority(m)} size="sm" />
+				<StatusBadge status={m.status} size="sm" />
+				<span>Due {fmtDate(m.due_date)}</span>
+				{#if m.estimate}
+					<span>&middot; Est. {m.estimate}</span>
+				{/if}
+			</div>
+			<div class="rounded-lg border border-border bg-background/50 p-3">
+				{#if m.description?.trim()}
+					<Markdown content={m.description} />
+				{:else}
+					<p class="text-sm text-muted-foreground">No description.</p>
+				{/if}
+			</div>
+			{#if m.slices.length > 0}
+				<div>
+					<p class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Slices</p>
+					<ul class="space-y-2 text-sm">
+						{#each m.slices as sl}
+							<li class="flex flex-wrap items-center gap-2 border-b border-border/60 pb-2 last:border-0 last:pb-0">
+								<span class="text-foreground">{sl.title}</span>
+								<StatusBadge status={sl.status} size="sm" />
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+		</div>
+	{:else if msPreviewData && msPreviewData.kind === 'draft'}
+		<div class="max-h-[min(70vh,32rem)] space-y-4 overflow-y-auto pr-1">
+			<h3 class="text-lg font-semibold text-foreground">
+				{msPreviewData.title.trim() || 'Untitled milestone'}
+			</h3>
+			<p class="text-xs text-muted-foreground">Draft preview — fields not yet saved.</p>
+			<div class="rounded-lg border border-border bg-background/50 p-3">
+				{#if msPreviewData.description?.trim()}
+					<Markdown content={msPreviewData.description} />
+				{:else}
+					<p class="text-sm text-muted-foreground">No description yet.</p>
+				{/if}
+			</div>
+			{#if msPreviewData.slices.some((s) => s.title.trim())}
+				<div>
+					<p class="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Slices</p>
+					<ul class="space-y-2 text-sm">
+						{#each msPreviewData.slices.filter((s) => s.title.trim()) as sl}
+							<li class="flex flex-wrap items-center gap-2 border-b border-border/60 pb-2 last:border-0 last:pb-0">
+								<span class="text-foreground">{sl.title}</span>
+								<StatusBadge status={sl.status} size="sm" />
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+		</div>
+	{/if}
+	<div class="mt-4 flex justify-end border-t border-border pt-4">
+		<button
+			type="button"
+			onclick={() => (msPreviewOpen = false)}
+			class="rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-secondary/80"
+		>
+			Close
+		</button>
+	</div>
 </Modal>
 
 <!-- ── Delete Milestone ──────────────────────────── -->

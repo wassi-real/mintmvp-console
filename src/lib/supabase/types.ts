@@ -17,6 +17,7 @@ export type Database = {
 					name?: string;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			users: {
 				Row: {
@@ -43,6 +44,7 @@ export type Database = {
 					organization_id?: string;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			projects: {
 				Row: {
@@ -75,6 +77,7 @@ export type Database = {
 					status?: 'active' | 'maintenance' | 'paused';
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			specs: {
 				Row: {
@@ -113,6 +116,7 @@ export type Database = {
 					status?: 'draft' | 'approved' | 'in_dev' | 'completed';
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 		tasks: {
 			Row: {
@@ -151,6 +155,7 @@ export type Database = {
 				branch_name?: string | null;
 				created_at?: string;
 			};
+			Relationships: [];
 		};
 		tests: {
 			Row: {
@@ -192,6 +197,7 @@ export type Database = {
 				source?: 'manual' | 'github';
 				linked_commit?: string | null;
 			};
+			Relationships: [];
 		};
 			code_commits: {
 				Row: {
@@ -224,6 +230,7 @@ export type Database = {
 					task_id?: string | null;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			repo_branches: {
 				Row: {
@@ -247,6 +254,7 @@ export type Database = {
 					last_activity_at?: string;
 					status?: 'stable' | 'testing' | 'broken';
 				};
+				Relationships: [];
 			};
 			project_environments: {
 				Row: {
@@ -276,6 +284,7 @@ export type Database = {
 					last_deploy_at?: string | null;
 					status?: 'healthy' | 'broken' | 'unknown';
 				};
+				Relationships: [];
 			};
 			project_health: {
 				Row: {
@@ -302,6 +311,7 @@ export type Database = {
 					error_count?: number;
 					warning_count?: number;
 				};
+				Relationships: [];
 			};
 			project_monitoring_public: {
 				Row: {
@@ -328,6 +338,7 @@ export type Database = {
 					created_at?: string;
 					updated_at?: string;
 				};
+				Relationships: [];
 			};
 			deployment_observations: {
 				Row: {
@@ -381,6 +392,7 @@ export type Database = {
 					target_url?: string | null;
 					creator_login?: string | null;
 				};
+				Relationships: [];
 			};
 			project_integrations_railway: {
 				Row: {
@@ -422,6 +434,7 @@ export type Database = {
 					created_at?: string;
 					updated_at?: string;
 				};
+				Relationships: [];
 			};
 			deploy_log_entries: {
 				Row: {
@@ -460,6 +473,7 @@ export type Database = {
 					dedupe_key?: string;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			deploy_log_events: {
 				Row: {
@@ -498,6 +512,7 @@ export type Database = {
 					source_entry_id?: string | null;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			monitoring_check_runs: {
 				Row: {
@@ -527,6 +542,7 @@ export type Database = {
 					duration_ms?: number;
 					error_message?: string | null;
 				};
+				Relationships: [];
 			};
 			monitoring_targets: {
 				Row: {
@@ -556,6 +572,7 @@ export type Database = {
 					sort_order?: number;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			milestones: {
 			Row: {
@@ -569,6 +586,21 @@ export type Database = {
 				paid_date: string | null;
 				notes: string;
 				task_id: string | null;
+				priority: 'p1_critical' | 'p2_high' | 'p3_normal' | 'p4_low';
+				estimate: string;
+				phase:
+					| 'planned'
+					| 'scoping'
+					| 'in_progress'
+					| 'testing'
+					| 'review'
+					| 'complete'
+					| 'blocked';
+				spec_id: string | null;
+				owner_user_id: string | null;
+				attach_bill: boolean;
+				bill_amount: number | null;
+				bill_status: 'draft' | 'sent' | 'paid' | 'overdue' | null;
 				created_at: string;
 			};
 			Insert: {
@@ -582,6 +614,21 @@ export type Database = {
 				paid_date?: string | null;
 				notes?: string;
 				task_id?: string | null;
+				priority?: 'p1_critical' | 'p2_high' | 'p3_normal' | 'p4_low';
+				estimate?: string;
+				phase?:
+					| 'planned'
+					| 'scoping'
+					| 'in_progress'
+					| 'testing'
+					| 'review'
+					| 'complete'
+					| 'blocked';
+				spec_id?: string | null;
+				owner_user_id?: string | null;
+				attach_bill?: boolean;
+				bill_amount?: number | null;
+				bill_status?: 'draft' | 'sent' | 'paid' | 'overdue' | null;
 				created_at?: string;
 			};
 			Update: {
@@ -595,9 +642,67 @@ export type Database = {
 				paid_date?: string | null;
 				notes?: string;
 				task_id?: string | null;
+				priority?: 'p1_critical' | 'p2_high' | 'p3_normal' | 'p4_low';
+				estimate?: string;
+				phase?:
+					| 'planned'
+					| 'scoping'
+					| 'in_progress'
+					| 'testing'
+					| 'review'
+					| 'complete'
+					| 'blocked';
+				spec_id?: string | null;
+				owner_user_id?: string | null;
+				attach_bill?: boolean;
+				bill_amount?: number | null;
+				bill_status?: 'draft' | 'sent' | 'paid' | 'overdue' | null;
 				created_at?: string;
 			};
+			Relationships: [];
 		};
+			milestone_slices: {
+				Row: {
+					id: string;
+					milestone_id: string;
+					title: string;
+					status: 'todo' | 'in_progress' | 'done' | 'blocked';
+					sort_order: number;
+					created_at: string;
+				};
+				Insert: {
+					id?: string;
+					milestone_id: string;
+					title: string;
+					status?: 'todo' | 'in_progress' | 'done' | 'blocked';
+					sort_order?: number;
+					created_at?: string;
+				};
+				Update: {
+					id?: string;
+					milestone_id?: string;
+					title?: string;
+					status?: 'todo' | 'in_progress' | 'done' | 'blocked';
+					sort_order?: number;
+					created_at?: string;
+				};
+				Relationships: [];
+			};
+			milestone_task_links: {
+				Row: {
+					milestone_id: string;
+					task_id: string;
+				};
+				Insert: {
+					milestone_id: string;
+					task_id: string;
+				};
+				Update: {
+					milestone_id?: string;
+					task_id?: string;
+				};
+				Relationships: [];
+			};
 			payments: {
 				Row: {
 					id: string;
@@ -629,6 +734,7 @@ export type Database = {
 					notes?: string;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			expenses: {
 				Row: {
@@ -661,6 +767,7 @@ export type Database = {
 					notes?: string;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			project_integrations_github: {
 				Row: {
@@ -696,6 +803,7 @@ export type Database = {
 					last_sync_at?: string | null;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			github_branches: {
 				Row: {
@@ -725,6 +833,7 @@ export type Database = {
 					updated_at?: string;
 					status?: 'active' | 'stale';
 				};
+				Relationships: [];
 			};
 			github_pull_requests: {
 				Row: {
@@ -760,6 +869,7 @@ export type Database = {
 					created_at?: string;
 					merged_at?: string | null;
 				};
+				Relationships: [];
 			};
 			github_commits: {
 				Row: {
@@ -789,6 +899,7 @@ export type Database = {
 					author?: string;
 					committed_at?: string;
 				};
+				Relationships: [];
 			};
 			github_ci_runs: {
 				Row: {
@@ -821,6 +932,7 @@ export type Database = {
 					status?: 'pending' | 'in_progress' | 'success' | 'failure' | 'cancelled';
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			github_deployments: {
 				Row: {
@@ -853,6 +965,7 @@ export type Database = {
 					status?: 'pending' | 'success' | 'failure' | 'inactive';
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			github_webhook_events: {
 				Row: {
@@ -876,6 +989,7 @@ export type Database = {
 					payload?: Record<string, unknown>;
 					processed_at?: string;
 				};
+				Relationships: [];
 			};
 			deployments: {
 				Row: {
@@ -905,6 +1019,7 @@ export type Database = {
 					notes?: string | null;
 					created_at?: string;
 				};
+				Relationships: [];
 			};
 			incidents: {
 				Row: {
@@ -937,6 +1052,7 @@ export type Database = {
 					created_at?: string;
 					resolved_at?: string | null;
 				};
+				Relationships: [];
 			};
 			reports: {
 			Row: {
@@ -966,6 +1082,7 @@ export type Database = {
 				created_at?: string;
 				updated_at?: string;
 			};
+			Relationships: [];
 		};
 		api_keys: {
 			Row: {
@@ -998,33 +1115,35 @@ export type Database = {
 				created_at?: string;
 				last_used_at?: string | null;
 			};
+			Relationships: [];
 		};
 		activity_log: {
-				Row: {
-					id: string;
-					project_id: string;
-					action: string;
-					actor: string;
-					metadata: Record<string, unknown> | null;
-					created_at: string;
-				};
-				Insert: {
-					id?: string;
-					project_id: string;
-					action: string;
-					actor: string;
-					metadata?: Record<string, unknown> | null;
-					created_at?: string;
-				};
-				Update: {
-					id?: string;
-					project_id?: string;
-					action?: string;
-					actor?: string;
-					metadata?: Record<string, unknown> | null;
-					created_at?: string;
-				};
+			Row: {
+				id: string;
+				project_id: string;
+				action: string;
+				actor: string;
+				metadata: Record<string, unknown> | null;
+				created_at: string;
 			};
+			Insert: {
+				id?: string;
+				project_id: string;
+				action: string;
+				actor: string;
+				metadata?: Record<string, unknown> | null;
+				created_at?: string;
+			};
+			Update: {
+				id?: string;
+				project_id?: string;
+				action?: string;
+				actor?: string;
+				metadata?: Record<string, unknown> | null;
+				created_at?: string;
+			};
+			Relationships: [];
+		};
 		};
 		Views: {
 			[_ in never]: never;
