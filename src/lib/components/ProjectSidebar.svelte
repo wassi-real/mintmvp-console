@@ -12,6 +12,7 @@
 		Globe,
 		HeartPulse,
 		DollarSign,
+		Landmark,
 		Github,
 		Play,
 		Settings2,
@@ -37,6 +38,7 @@
 			links: [
 				{ path: '/reports', label: 'Reports', icon: BookOpen },
 				{ path: '/specs', label: 'Specs', icon: FileText },
+				{ path: '/milestone', label: 'Milestones', icon: Landmark },
 				{ path: '/tasks', label: 'Tasks', icon: ListTodo }
 			]
 		},

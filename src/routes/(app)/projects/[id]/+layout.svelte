@@ -21,6 +21,7 @@
 		const path = $page.url.pathname;
 		if (path.endsWith('/pipeline')) return 'Pipeline';
 		if (path.endsWith('/specs')) return 'Specs';
+		if (path.includes('/milestone')) return 'Milestones';
 		if (path.endsWith('/tasks')) return 'Tasks';
 		if (path.endsWith('/tests')) return 'Tests';
 		if (path.endsWith('/environments')) return 'Environments';

@@ -58,6 +58,13 @@
 		ready_for_payment: 'bg-amber-900/60 text-amber-300',
 		paid: 'bg-green-900/60 text-green-300',
 		overdue: 'bg-red-900/60 text-red-300',
+		// milestone lifecycle phase (current phase)
+		discovery: 'bg-slate-800 text-slate-200',
+		planning: 'bg-indigo-900/60 text-indigo-200',
+		execution: 'bg-blue-900/60 text-blue-200',
+		internal_testing: 'bg-amber-900/60 text-amber-200',
+		client_review: 'bg-purple-900/60 text-purple-200',
+		released: 'bg-emerald-900/60 text-emerald-200',
 		// milestone work phase / slices / bill
 		scoping: 'bg-indigo-900/60 text-indigo-300',
 		complete: 'bg-emerald-900/60 text-emerald-300',

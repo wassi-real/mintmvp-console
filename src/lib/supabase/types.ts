@@ -589,15 +589,26 @@ export type Database = {
 				priority: 'p1_critical' | 'p2_high' | 'p3_normal' | 'p4_low';
 				estimate: string;
 				phase:
-					| 'planned'
-					| 'scoping'
-					| 'in_progress'
-					| 'testing'
-					| 'review'
-					| 'complete'
-					| 'blocked';
+					| 'discovery'
+					| 'planning'
+					| 'execution'
+					| 'internal_testing'
+					| 'client_review'
+					| 'approved'
+					| 'released'
+					| 'blocked'
+					| 'closed';
 				spec_id: string | null;
 				owner_user_id: string | null;
+				entry_gate: string;
+				exit_gate: string;
+				test_gate_required_tests: string;
+				test_gate_pass_threshold: string;
+				test_gate_environment: string;
+				dependencies: string;
+				risks_blockers: string;
+				deliverables: string;
+				approval_owner_user_id: string | null;
 				attach_bill: boolean;
 				bill_amount: number | null;
 				bill_status: 'draft' | 'sent' | 'paid' | 'overdue' | null;
@@ -617,15 +628,26 @@ export type Database = {
 				priority?: 'p1_critical' | 'p2_high' | 'p3_normal' | 'p4_low';
 				estimate?: string;
 				phase?:
-					| 'planned'
-					| 'scoping'
-					| 'in_progress'
-					| 'testing'
-					| 'review'
-					| 'complete'
-					| 'blocked';
+					| 'discovery'
+					| 'planning'
+					| 'execution'
+					| 'internal_testing'
+					| 'client_review'
+					| 'approved'
+					| 'released'
+					| 'blocked'
+					| 'closed';
 				spec_id?: string | null;
 				owner_user_id?: string | null;
+				entry_gate?: string;
+				exit_gate?: string;
+				test_gate_required_tests?: string;
+				test_gate_pass_threshold?: string;
+				test_gate_environment?: string;
+				dependencies?: string;
+				risks_blockers?: string;
+				deliverables?: string;
+				approval_owner_user_id?: string | null;
 				attach_bill?: boolean;
 				bill_amount?: number | null;
 				bill_status?: 'draft' | 'sent' | 'paid' | 'overdue' | null;
@@ -645,15 +667,26 @@ export type Database = {
 				priority?: 'p1_critical' | 'p2_high' | 'p3_normal' | 'p4_low';
 				estimate?: string;
 				phase?:
-					| 'planned'
-					| 'scoping'
-					| 'in_progress'
-					| 'testing'
-					| 'review'
-					| 'complete'
-					| 'blocked';
+					| 'discovery'
+					| 'planning'
+					| 'execution'
+					| 'internal_testing'
+					| 'client_review'
+					| 'approved'
+					| 'released'
+					| 'blocked'
+					| 'closed';
 				spec_id?: string | null;
 				owner_user_id?: string | null;
+				entry_gate?: string;
+				exit_gate?: string;
+				test_gate_required_tests?: string;
+				test_gate_pass_threshold?: string;
+				test_gate_environment?: string;
+				dependencies?: string;
+				risks_blockers?: string;
+				deliverables?: string;
+				approval_owner_user_id?: string | null;
 				attach_bill?: boolean;
 				bill_amount?: number | null;
 				bill_status?: 'draft' | 'sent' | 'paid' | 'overdue' | null;
@@ -666,7 +699,11 @@ export type Database = {
 					id: string;
 					milestone_id: string;
 					title: string;
-					status: 'todo' | 'in_progress' | 'done' | 'blocked';
+					notes: string;
+					owner_user_id: string | null;
+					estimate: string;
+					depends_on: string | null;
+					status: 'pending' | 'in_progress' | 'done' | 'blocked';
 					sort_order: number;
 					created_at: string;
 				};
@@ -674,7 +711,11 @@ export type Database = {
 					id?: string;
 					milestone_id: string;
 					title: string;
-					status?: 'todo' | 'in_progress' | 'done' | 'blocked';
+					notes?: string;
+					owner_user_id?: string | null;
+					estimate?: string;
+					depends_on?: string | null;
+					status?: 'pending' | 'in_progress' | 'done' | 'blocked';
 					sort_order?: number;
 					created_at?: string;
 				};
@@ -682,7 +723,11 @@ export type Database = {
 					id?: string;
 					milestone_id?: string;
 					title?: string;
-					status?: 'todo' | 'in_progress' | 'done' | 'blocked';
+					notes?: string;
+					owner_user_id?: string | null;
+					estimate?: string;
+					depends_on?: string | null;
+					status?: 'pending' | 'in_progress' | 'done' | 'blocked';
 					sort_order?: number;
 					created_at?: string;
 				};
