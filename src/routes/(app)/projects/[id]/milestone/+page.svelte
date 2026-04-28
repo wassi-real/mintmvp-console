@@ -5,6 +5,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import PageHeader from '$lib/components/PageHeader.svelte';
+	import MilestoneSlicesPreface from '$lib/components/MilestoneSlicesPreface.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
@@ -14,6 +15,7 @@
 		groupDbSlicesByPhase,
 		groupDraftSlicesByPhase,
 		normalizeSlicePhaseValue,
+		phaseDescription,
 		rollupMilestoneSliceSchedule,
 		type MilestoneWithRelations
 	} from '$lib/milestone-shared';
@@ -450,11 +452,19 @@
 
 					{#if ms.slices.length > 0}
 						<div class="space-y-5 p-4 sm:p-5 sm:pt-4">
+							<MilestoneSlicesPreface
+								description={ms.description}
+								entryGate={ms.entry_gate}
+								exitGate={ms.exit_gate}
+							/>
 							{#each groupDbSlicesByPhase(ms.slices) as group}
 								<div>
-									<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+									<h3 class="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">
 										{phaseLabel(group.phase)}
 									</h3>
+									<p class="mb-2 max-w-prose text-[11px] leading-snug text-muted-foreground">
+										{phaseDescription(group.phase)}
+									</p>
 									<ul class="space-y-2">
 										{#each group.slices as sl}
 											<li class="rounded-lg border border-border bg-secondary/15 p-3">
@@ -1274,7 +1284,10 @@
 					<div class="space-y-4">
 						{#each groupDbSlicesByPhase(m.slices) as group}
 							<div>
-								<p class="mb-2 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<p class="mb-1 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<p class="mb-2 max-w-prose text-[11px] leading-snug text-muted-foreground">
+									{phaseDescription(group.phase)}
+								</p>
 								<ul class="space-y-2">
 									{#each group.slices as sl}
 										<li class="rounded-lg border border-border bg-secondary/10 p-3 text-xs leading-relaxed text-foreground">
@@ -1440,7 +1453,10 @@
 					<div class="space-y-4">
 						{#each groupDraftSlicesByPhase(d.slices, (s) => !!s.title.trim()) as group}
 							<div>
-								<p class="mb-2 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<p class="mb-1 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<p class="mb-2 max-w-prose text-[11px] leading-snug text-muted-foreground">
+									{phaseDescription(group.phase)}
+								</p>
 								<ul class="space-y-2">
 									{#each group.slices as sl}
 										<li class="rounded-lg border border-border bg-secondary/10 p-3 text-xs leading-relaxed text-foreground">

@@ -85,6 +85,91 @@
 			del: { desc: 'Delete a spec' }
 		},
 		{
+			id: 'milestones',
+			label: 'Milestones',
+			paramName: 'milestoneId',
+			get: {
+				desc: 'List milestones with nested slices and linked_task_ids',
+				response:
+					'{ "data": [ { …milestone columns…, "slices": [...], "linked_task_ids": ["uuid"] } ], "meta": { "phase_descriptions": { "discovery": "…", … } } }'
+			},
+			getOne: {
+				desc: 'Get one milestone with full columns, sorted slices, linked_task ids, and phase_descriptions',
+				response:
+					'{ "data": { …milestone…, "slices": [...], "linked_task_ids": [...] }, "meta": { "phase_descriptions": { … } } }'
+			},
+			post: {
+				desc: 'Create a milestone (same validation as the Milestones UI)',
+				body:
+					'{ "title": "Beta launch", "description": "Ship MVP", "estimate": "40h", "due_date": "2026-05-01", "approval_owner_user_id": "<org-user-uuid>", "entry_gate": "Spec approved", "exit_gate": "Deployed to prod", "test_gate_required_tests": "Smoke + regression", "test_gate_pass_threshold": "100% smoke", "test_gate_environment": "staging", "linked_task_ids": [], "slices": [] }',
+				required: [
+					'title',
+					'description',
+					'estimate',
+					'due_date',
+					'approval_owner_user_id',
+					'entry_gate',
+					'exit_gate',
+					'test_gate_required_tests',
+					'test_gate_pass_threshold',
+					'test_gate_environment'
+				],
+				optional: [
+					'priority',
+					'phase',
+					'spec_id',
+					'owner_user_id',
+					'notes',
+					'dependencies',
+					'risks_blockers',
+					'deliverables',
+					'amount',
+					'status',
+					'paid_date',
+					'attach_bill',
+					'bill_amount',
+					'bill_status',
+					'linked_task_ids',
+					'slices',
+					'slices_json'
+				]
+			},
+			patch: {
+				desc: 'Update a milestone (partial merge — omitted fields stay unchanged)',
+				body: '{ "title": "Beta launch (delayed)" }',
+				optional: [
+					'title',
+					'description',
+					'estimate',
+					'due_date',
+					'approval_owner_user_id',
+					'entry_gate',
+					'exit_gate',
+					'test_gate_required_tests',
+					'test_gate_pass_threshold',
+					'test_gate_environment',
+					'priority',
+					'phase',
+					'spec_id',
+					'owner_user_id',
+					'notes',
+					'dependencies',
+					'risks_blockers',
+					'deliverables',
+					'amount',
+					'status',
+					'paid_date',
+					'attach_bill',
+					'bill_amount',
+					'bill_status',
+					'linked_task_ids',
+					'slices',
+					'slices_json'
+				]
+			},
+			del: { desc: 'Delete a milestone' }
+		},
+		{
 			id: 'tasks',
 			label: 'Tasks',
 			paramName: 'taskId',
@@ -341,13 +426,17 @@
 									class="flex w-full items-center justify-between px-6 py-5 text-left"
 								>
 									<div class="flex items-center gap-3">
-										<span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-bold text-green-400">GET</span>
-										<span class="rounded bg-blue-900/40 px-2 py-0.5 text-xs font-bold text-blue-400">POST</span>
-										{#if ep.patch}
-											<span class="rounded bg-amber-900/40 px-2 py-0.5 text-xs font-bold text-amber-400">PATCH</span>
-										{/if}
-										{#if ep.del}
-											<span class="rounded bg-red-900/40 px-2 py-0.5 text-xs font-bold text-red-400">DELETE</span>
+										{#if 'readOnly' in ep && ep.readOnly}
+											<span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-bold text-green-400">GET</span>
+										{:else}
+											<span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-bold text-green-400">GET</span>
+											<span class="rounded bg-blue-900/40 px-2 py-0.5 text-xs font-bold text-blue-400">POST</span>
+											{#if ep.patch}
+												<span class="rounded bg-amber-900/40 px-2 py-0.5 text-xs font-bold text-amber-400">PATCH</span>
+											{/if}
+											{#if ep.del}
+												<span class="rounded bg-red-900/40 px-2 py-0.5 text-xs font-bold text-red-400">DELETE</span>
+											{/if}
 										{/if}
 										<span class="text-lg font-semibold text-foreground">/{ep.id}</span>
 									</div>
@@ -381,18 +470,29 @@
 										<div>
 											<div class="flex items-center gap-2">
 												<span class="rounded bg-green-900/40 px-2 py-0.5 text-xs font-bold text-green-400">GET</span>
-												<span class="text-base font-semibold text-foreground">Get a single {ep.label.toLowerCase().slice(0, -1)}</span>
+												<span class="text-base font-semibold text-foreground"
+													>{ep.getOne?.desc ?? `Get a single ${ep.label.toLowerCase().replace(/s$/, '')}`}</span
+												>
 											</div>
 											<p class="mt-2 text-sm text-muted-foreground">
-												Path: <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground">/{ep.id}/&#123;id&#125;</code>
+												Path: <code class="rounded bg-secondary px-1.5 py-0.5 font-mono text-foreground"
+													>/{ep.id}/&#123;{ep.paramName ?? 'id'}&#125;</code
+												>
 											</p>
 											<div class="mt-3 rounded-lg bg-secondary p-4">
 												<p class="mb-1 text-xs font-semibold uppercase text-muted-foreground">curl</p>
 												<pre class="text-sm font-mono text-foreground overflow-x-auto whitespace-pre-wrap">curl -H "Authorization: Bearer mint_YOUR_KEY" \
   {baseUrl}/{ep.id}/ITEM_UUID</pre>
 											</div>
+											{#if ep.getOne?.response}
+												<div class="mt-3 rounded-lg bg-secondary p-4">
+													<p class="mb-1 text-xs font-semibold uppercase text-muted-foreground">Response</p>
+													<pre class="text-sm font-mono text-foreground overflow-x-auto whitespace-pre-wrap">{ep.getOne.response}</pre>
+												</div>
+											{/if}
 										</div>
 
+										{#if ep.post}
 										<!-- POST -->
 										<div>
 											<div class="flex items-center gap-2">
@@ -418,6 +518,7 @@
   {baseUrl}/{ep.id}</pre>
 											</div>
 										</div>
+										{/if}
 
 										{#if ep.patch}
 											<!-- PATCH -->
@@ -468,6 +569,12 @@
 												</div>
 											</div>
 										{/if}
+
+										{#if 'readOnly' in ep && ep.readOnly}
+											<p class="text-sm text-muted-foreground">
+												Read-only in the API — create and edit milestones in the project <strong class="text-foreground">Milestones</strong> screen.
+											</p>
+										{/if}
 									</div>
 								{/if}
 							</div>
@@ -488,6 +595,8 @@
 									</tr>
 								</thead>
 								<tbody>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Milestones · slices</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">phase</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">discovery</code> … <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">closed</code> (same enum on milestones and milestone_slices)</td></tr>
+									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Slices</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">pending</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">in_progress</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">done</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">blocked</code></td></tr>
 									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Specs</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">draft</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">approved</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">in_dev</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">completed</code></td></tr>
 									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tasks</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">status</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">backlog</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">in_progress</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">review</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">testing</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">deployed</code></td></tr>
 									<tr class="border-b border-border"><td class="whitespace-nowrap px-4 py-2.5 text-sm font-medium text-foreground">Tasks</td><td class="whitespace-nowrap px-4 py-2.5 text-sm text-muted-foreground">priority</td><td class="px-4 py-2.5 text-sm text-muted-foreground"><code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">low</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">medium</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">high</code> <code class="rounded bg-secondary px-1 py-0.5 text-xs font-mono">critical</code></td></tr>

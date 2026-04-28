@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="description" content="MintMVP Console REST API — authenticate with API keys and manage specs, tasks, tests, incidents, and reports programmatically." />
+		<meta name="description" content="MintMVP Console REST API — specs, tasks, milestones & slices, tests, incidents, reports; authenticate with API keys." />
 		<meta name="theme-color" content="#09090b" />
 		<title>MintMVP Console — API Documentation</title>
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,6 +39,7 @@
 				<a href="#configure">Base URL</a>
 				<a href="#authentication">Authentication</a>
 				<a href="#endpoints">Endpoints</a>
+				<a href="#milestones-api">Milestones API</a>
 				<a href="#github">GitHub Integration</a>
 				<a href="#public-status">Public status</a>
 				<a href="#enums">Enum Values</a>
@@ -166,6 +167,23 @@
 					<h3 style="margin: 0 0 1rem; font-size: 1.5rem">Endpoints</h3>
 					<p class="muted">Click a row to expand <strong>GET</strong>, <strong>POST</strong>, <strong>PATCH</strong>, and <strong>DELETE</strong> examples.</p>
 					<div id="endpoints-root"></div>
+				</section>
+
+				<section id="milestones-api" style="margin-top: 1.5rem">
+					<div class="card">
+						<h3>Milestones API</h3>
+						<p class="muted">
+							<code class="inline-code">GET /api/v1/projects/&lt;project_id&gt;/milestones</code> lists milestones with nested <strong>slices</strong> and <strong>linked_task_ids</strong>.
+							<code class="inline-code">GET .../milestones/&lt;milestone_id&gt;</code> returns one milestone with full detail.
+							<code class="inline-code">POST</code>, <code class="inline-code">PATCH</code>, and <code class="inline-code">DELETE</code> on those paths create, partially update (merge), and delete milestones with validation aligned to the Milestones UI.
+							List and detail responses include
+							<code class="inline-code">meta.phase_descriptions</code> (short text per lifecycle phase key).
+						</p>
+						<p class="muted" style="margin-top: 0.75rem">
+							Full details in
+							<a href="./api-milestones.md">docs/api-milestones.md</a>.
+						</p>
+					</div>
 				</section>
 
 				<section id="github" style="margin-top: 1.5rem">

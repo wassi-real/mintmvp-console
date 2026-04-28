@@ -19,7 +19,6 @@ export const PHASES = [
 ] as const;
 export const SLICE_STATUSES = ['pending', 'in_progress', 'done', 'blocked'] as const;
 export const BILL_STATUSES = ['draft', 'sent', 'paid', 'overdue'] as const;
-
 function normalizeSliceScheduleField(v: unknown): string | null {
 	if (v == null || v === '') return null;
 	const s = String(v).trim();
@@ -121,6 +120,23 @@ export type FinanceMilestoneSummary = Pick<
 export function normalizeSlicePhaseValue(p: string | null | undefined): (typeof PHASES)[number] {
 	if (p && PHASES.includes(p as (typeof PHASES)[number])) return p as (typeof PHASES)[number];
 	return 'discovery';
+}
+
+/** One-line explanation for each slice/milestone lifecycle phase (UI + API meta). */
+export const PHASE_DESCRIPTIONS: Record<(typeof PHASES)[number], string> = {
+	discovery: 'Clarify goals, constraints, and success criteria before committing to scope.',
+	planning: 'Shape backlog, sequencing, estimates, and owners for the next delivery slice.',
+	execution: 'Implement and integrate agreed scope with reviews and steady CI.',
+	internal_testing: 'Team-led validation—regressions, edge cases, and release readiness.',
+	client_review: 'Stakeholder demos, acceptance checks, and feedback on the increment.',
+	approved: 'Formal sign-off recorded; proceed toward release or handoff.',
+	released: 'Delivered to production or users; verify outcomes and close the loop.',
+	blocked: 'Paused waiting on an external dependency before work can resume.',
+	closed: 'Archived—outcomes reconciled and references cleaned up.'
+};
+
+export function phaseDescription(phase: string | null | undefined): string {
+	return PHASE_DESCRIPTIONS[normalizeSlicePhaseValue(phase)];
 }
 
 /** Sort slices by phase, then planned start, deadline, then creation order. */

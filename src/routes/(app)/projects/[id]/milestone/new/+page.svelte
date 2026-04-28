@@ -11,6 +11,7 @@
 		displaySliceSchedule,
 		groupDraftSlicesByPhase,
 		normalizeSlicePhaseValue,
+		phaseDescription,
 		rollupMilestoneSliceSchedule
 	} from '$lib/milestone-shared';
 
@@ -972,7 +973,10 @@
 					<div class="space-y-4">
 						{#each groupDraftSlicesByPhase(d.slices, (s) => !!s.title.trim()) as group}
 							<div>
-								<p class="mb-2 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<p class="mb-1 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<p class="mb-2 max-w-prose text-[11px] leading-snug text-muted-foreground">
+									{phaseDescription(group.phase)}
+								</p>
 								<ul class="space-y-2">
 									{#each group.slices as sl}
 										<li class="rounded-lg border border-border bg-secondary/10 p-3 text-xs leading-relaxed text-foreground">
