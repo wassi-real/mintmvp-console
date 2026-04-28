@@ -704,6 +704,16 @@ export type Database = {
 					estimate: string;
 					depends_on: string | null;
 					status: 'pending' | 'in_progress' | 'done' | 'blocked';
+					phase:
+						| 'discovery'
+						| 'planning'
+						| 'execution'
+						| 'internal_testing'
+						| 'client_review'
+						| 'approved'
+						| 'released'
+						| 'blocked'
+						| 'closed';
 					sort_order: number;
 					created_at: string;
 				};
@@ -716,6 +726,16 @@ export type Database = {
 					estimate?: string;
 					depends_on?: string | null;
 					status?: 'pending' | 'in_progress' | 'done' | 'blocked';
+					phase?:
+						| 'discovery'
+						| 'planning'
+						| 'execution'
+						| 'internal_testing'
+						| 'client_review'
+						| 'approved'
+						| 'released'
+						| 'blocked'
+						| 'closed';
 					sort_order?: number;
 					created_at?: string;
 				};
@@ -728,6 +748,16 @@ export type Database = {
 					estimate?: string;
 					depends_on?: string | null;
 					status?: 'pending' | 'in_progress' | 'done' | 'blocked';
+					phase?:
+						| 'discovery'
+						| 'planning'
+						| 'execution'
+						| 'internal_testing'
+						| 'client_review'
+						| 'approved'
+						| 'released'
+						| 'blocked'
+						| 'closed';
 					sort_order?: number;
 					created_at?: string;
 				};

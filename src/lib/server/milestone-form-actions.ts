@@ -2,13 +2,8 @@ import type { Tables } from '$lib/supabase/types';
 import type { RequestEvent } from '@sveltejs/kit';
 import { fail, redirect } from '@sveltejs/kit';
 import { logActivity, getActorName } from '$lib/server/activity';
-import {
-	orgUserIdSet,
-	parseSlicesJson,
-	PRIORITIES,
-	PHASES,
-	BILL_STATUSES
-} from '$lib/server/milestone-shared';
+import { parseSlicesJson, PRIORITIES, PHASES, BILL_STATUSES } from '$lib/milestone-shared';
+import { orgUserIdSet } from '$lib/server/milestone-shared';
 
 type MilestoneRequest = RequestEvent<{ id: string }>;
 
@@ -164,6 +159,7 @@ export async function createMilestone({ request, locals, params }: MilestoneRequ
 					estimate: s.estimate,
 					depends_on: s.depends_on,
 					status: s.status,
+					phase: s.phase,
 					sort_order: i
 				}))
 			);
@@ -341,6 +337,7 @@ export async function updateMilestone({ request, locals, params }: MilestoneRequ
 					estimate: s.estimate,
 					depends_on: s.depends_on,
 					status: s.status,
+					phase: s.phase,
 					sort_order: i
 				}))
 			);

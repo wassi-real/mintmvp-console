@@ -6,6 +6,7 @@
 	import { enhance } from '$app/forms';
 	import { page } from '$app/stores';
 	import { Eye, ArrowLeft } from 'lucide-svelte';
+	import { groupDraftSlicesByPhase, normalizeSlicePhaseValue } from '$lib/milestone-shared';
 
 	let { data } = $props();
 
@@ -16,16 +17,18 @@
 		owner_user_id: string;
 		status: string;
 		depends_on: string;
+		phase: string;
 	};
 
-	function emptySlice(): SliceRow {
+	function emptySlice(milestonePhase?: string): SliceRow {
 		return {
 			title: '',
 			notes: '',
 			estimate: '',
 			owner_user_id: '',
 			status: 'pending',
-			depends_on: ''
+			depends_on: '',
+			phase: normalizeSlicePhaseValue(milestonePhase)
 		};
 	}
 
@@ -137,7 +140,8 @@
 					estimate: s.estimate.trim(),
 					owner_user_id: s.owner_user_id.trim() || null,
 					depends_on: s.depends_on.trim() || null,
-					status: s.status
+					status: s.status,
+					phase: normalizeSlicePhaseValue(s.phase)
 				}))
 		);
 	}
@@ -494,7 +498,7 @@
 				Section 4 · Slices
 			</p>
 			<p class="mb-3 text-xs text-muted-foreground">
-				Each slice is a concrete unit of work inside this milestone — with context, owner, and estimate.
+				Assign each slice to a lifecycle phase. New slices default to the milestone’s current phase below — change per slice as needed.
 			</p>
 			<div class="space-y-3">
 				{#each msCreateSlices as row, i (i)}
@@ -505,7 +509,7 @@
 								type="button"
 								onclick={() => {
 									msCreateSlices = msCreateSlices.filter((_, j) => j !== i);
-									if (msCreateSlices.length === 0) msCreateSlices = [emptySlice()];
+									if (msCreateSlices.length === 0) msCreateSlices = [emptySlice(msCreatePhase)];
 								}}
 								class="rounded-lg border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary"
 							>
@@ -517,6 +521,20 @@
 							placeholder="Slice title *"
 							class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground"
 						/>
+						<div>
+							<label class="mb-1 block text-xs font-medium text-muted-foreground" for="ms-n-slice-phase-{i}"
+								>Phase</label
+							>
+							<select
+								id="ms-n-slice-phase-{i}"
+								bind:value={row.phase}
+								class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+							>
+								{#each PHASE_OPTIONS as p}
+									<option value={p.value}>{p.label}</option>
+								{/each}
+							</select>
+						</div>
 						<div>
 							<label class="mb-1 block text-xs font-medium text-muted-foreground" for="ms-n-slice-notes-{i}"
 								>Notes</label
@@ -588,7 +606,7 @@
 			<button
 				type="button"
 				onclick={() => {
-					msCreateSlices = [...msCreateSlices, emptySlice()];
+					msCreateSlices = [...msCreateSlices, emptySlice(msCreatePhase)];
 				}}
 				class="mt-3 text-sm font-medium text-primary hover:underline"
 			>
@@ -838,35 +856,50 @@
 					{/if}
 				</dl>
 			</div>
-			{#if d.slices.some((s) => s.title.trim())}
+			{#if groupDraftSlicesByPhase(d.slices, (s) => !!s.title.trim()).length > 0}
 				<div>
-					<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Slices</p>
-					<ul class="space-y-3">
-						{#each d.slices.filter((s) => s.title.trim()) as sl}
-							<li class="rounded-lg border border-border bg-secondary/10 p-3 font-mono text-xs leading-relaxed text-foreground">
-								<p><span class="text-muted-foreground">Title:</span> {sl.title}</p>
-								{#if sl.notes?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Notes:</span> {sl.notes}</p>
-								{/if}
-								{#if sl.estimate?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Estimate:</span> {sl.estimate}</p>
-								{/if}
-								{#if sl.owner_user_id}
-									<p class="mt-1">
-										<span class="text-muted-foreground">Owner:</span>
-										{orgUserName(sl.owner_user_id) || '—'}
-									</p>
-								{/if}
-								<p class="mt-1">
-									<span class="text-muted-foreground">Status:</span>
-									{sliceStatusLabel(sl.status)}
-								</p>
-								{#if sl.depends_on?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Dependency:</span> {sl.depends_on}</p>
-								{/if}
-							</li>
+					<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						Slices by phase
+					</p>
+					<div class="space-y-4">
+						{#each groupDraftSlicesByPhase(d.slices, (s) => !!s.title.trim()) as group}
+							<div>
+								<p class="mb-2 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<ul class="space-y-2">
+									{#each group.slices as sl}
+										<li class="rounded-lg border border-border bg-secondary/10 p-3 text-xs leading-relaxed text-foreground">
+											<p class="font-medium">{sl.title}</p>
+											{#if sl.notes?.trim()}
+												<p class="mt-1 text-muted-foreground">{sl.notes}</p>
+											{/if}
+											{#if sl.estimate?.trim()}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Estimate:</span>
+													{sl.estimate}
+												</p>
+											{/if}
+											{#if sl.owner_user_id}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Owner:</span>
+													{orgUserName(sl.owner_user_id) || '—'}
+												</p>
+											{/if}
+											<p class="mt-1">
+												<span class="text-muted-foreground">Status:</span>
+												{sliceStatusLabel(sl.status)}
+											</p>
+											{#if sl.depends_on?.trim()}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Dependency:</span>
+													{sl.depends_on}
+												</p>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
 						{/each}
-					</ul>
+					</div>
 				</div>
 			{/if}
 		</div>

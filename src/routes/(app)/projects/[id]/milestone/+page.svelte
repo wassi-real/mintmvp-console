@@ -8,8 +8,13 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
-	import { Landmark, Plus, Pencil, Trash2, Eye, CheckCircle2, AlertTriangle } from 'lucide-svelte';
-	import type { MilestoneWithRelations } from '$lib/server/milestone-shared';
+	import { Landmark, Plus, Pencil, Eye, CheckCircle2, AlertTriangle } from 'lucide-svelte';
+	import {
+		groupDbSlicesByPhase,
+		groupDraftSlicesByPhase,
+		normalizeSlicePhaseValue,
+		type MilestoneWithRelations
+	} from '$lib/milestone-shared';
 
 	let { data } = $props();
 
@@ -25,16 +30,18 @@
 		owner_user_id: string;
 		status: string;
 		depends_on: string;
+		phase: string;
 	};
 
-	function emptySlice(): SliceRow {
+	function emptySlice(milestonePhase?: string): SliceRow {
 		return {
 			title: '',
 			notes: '',
 			estimate: '',
 			owner_user_id: '',
 			status: 'pending',
-			depends_on: ''
+			depends_on: '',
+			phase: normalizeSlicePhaseValue(milestonePhase)
 		};
 	}
 
@@ -160,7 +167,8 @@
 					estimate: s.estimate.trim(),
 					owner_user_id: s.owner_user_id.trim() || null,
 					depends_on: s.depends_on.trim() || null,
-					status: s.status
+					status: s.status,
+					phase: normalizeSlicePhaseValue(s.phase)
 				}))
 		);
 	}
@@ -298,201 +306,151 @@
 			</a>
 		</div>
 	{:else}
-		<!-- Mobile cards -->
-		<div class="mt-6 space-y-3 sm:hidden">
+		<div class="mt-6 space-y-6">
 			{#each data.milestones as ms}
-				<div class="rounded-xl border border-border bg-card p-4">
-					<div class="flex items-start justify-between gap-2">
-						<div class="min-w-0 flex-1">
-							<p class="text-base font-semibold text-foreground">{ms.title}</p>
-							<p class="mt-1 text-lg font-bold text-foreground">{fmt(Number(ms.amount))}</p>
-							<div class="mt-2 flex flex-wrap gap-1.5">
-								<StatusBadge status={milestonePhase(ms)} size="sm" />
-								<StatusBadge status={milestonePriority(ms)} size="sm" />
-								{#if ms.slices.length > 0}
-									<span
-										class="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground"
-									>
-										{ms.slices.length} slice{ms.slices.length === 1 ? '' : 's'}
-									</span>
-								{/if}
-							</div>
-						</div>
-						<StatusBadge status={ms.status} size="sm" />
-					</div>
-					{#if ms.description}
-						<p class="mt-2 text-sm text-muted-foreground line-clamp-2">
-							{plainDescriptionSnippet(ms.description)}
-						</p>
-					{/if}
-					<div class="mt-3 flex items-center justify-between text-xs text-muted-foreground">
-						<span>Due: {fmtDate(ms.due_date)}</span>
-						<span>Paid: {fmtDate(ms.paid_date)}</span>
-					</div>
-					<div class="mt-3 flex flex-wrap gap-2">
-						<button
-							type="button"
-							onclick={() => {
-								msPreviewData = { kind: 'saved', milestone: ms };
-								msPreviewOpen = true;
-							}}
-							class="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
-						>
-							<Eye size={14} />
-							Preview
-						</button>
-						<button
-							onclick={() => {
-								msEditing = ms;
-								msEditTitle = ms.title;
-								msEditDescription = ms.description ?? '';
-								msEditSlices =
-									ms.slices.length > 0
-										? ms.slices.map((s) => ({
-												title: s.title,
-												notes: s.notes ?? '',
-												estimate: s.estimate ?? '',
-												owner_user_id: s.owner_user_id ?? '',
-												status: normalizeSliceStatus(s.status),
-												depends_on: s.depends_on ?? ''
-											}))
-										: [emptySlice()];
-								hydrateEditFields(ms);
-								msEditOpen = true;
-							}}
-							class="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80"
-						>
-							Edit
-						</button>
-						<button
-							onclick={() => {
-								msDeletingId = ms.id;
-								msDeleteOpen = true;
-							}}
-							class="rounded-lg bg-red-900/30 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-900/50"
-						>
-							Delete
-						</button>
-					</div>
-				</div>
-			{/each}
-		</div>
-
-		<!-- Desktop table -->
-		<div class="mt-6 hidden overflow-x-auto rounded-xl border border-border sm:block">
-			<table class="w-full text-left">
-				<thead class="border-b border-border bg-secondary/50">
-					<tr>
-						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground">Milestone</th>
-						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground">Amount</th>
-						<th
-							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground lg:table-cell"
-							>Phase</th
-						>
-						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground">Pay status</th>
-						<th
-							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground md:table-cell"
-						>
-							Due Date
-						</th>
-						<th
-							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground xl:table-cell"
-						>
-							Paid Date
-						</th>
-						<th
-							class="hidden px-4 py-3 text-xs font-semibold text-muted-foreground lg:table-cell"
-							>Slices</th
-						>
-						<th class="px-4 py-3 text-xs font-semibold text-muted-foreground"></th>
-					</tr>
-				</thead>
-				<tbody class="divide-y divide-border">
-					{#each data.milestones as ms}
-						<tr class="transition-colors hover:bg-secondary/20">
-							<td class="px-4 py-3">
-								<p class="text-sm font-medium text-foreground">{ms.title}</p>
-								{#if ms.description}
-									<p class="mt-0.5 text-xs text-muted-foreground line-clamp-1">
-										{plainDescriptionSnippet(ms.description, 100)}
-									</p>
-								{/if}
-								<div class="mt-1 flex flex-wrap gap-1 lg:hidden">
+				<article class="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+					<div class="border-b border-border p-4 sm:p-5">
+						<div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+							<div class="min-w-0 flex-1">
+								<div class="flex flex-wrap items-center gap-2">
+									<h2 class="text-lg font-semibold tracking-tight text-foreground">{ms.title}</h2>
+									<StatusBadge status={ms.status} size="sm" />
+								</div>
+								<p class="mt-1 text-xl font-bold tabular-nums text-foreground">
+									{fmt(Number(ms.amount))}
+								</p>
+								<div class="mt-2 flex flex-wrap gap-1.5">
 									<StatusBadge status={milestonePhase(ms)} size="sm" />
 									<StatusBadge status={milestonePriority(ms)} size="sm" />
+									{#if ms.slices.length > 0}
+										<span
+											class="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground"
+										>
+											{ms.slices.length} slice{ms.slices.length === 1 ? '' : 's'}
+										</span>
+									{/if}
 								</div>
-							</td>
-							<td class="px-4 py-3 text-sm font-semibold text-foreground"
-								>{fmt(Number(ms.amount))}</td
-							>
-							<td class="hidden px-4 py-3 lg:table-cell">
-								<StatusBadge status={milestonePhase(ms)} size="sm" />
-							</td>
-							<td class="px-4 py-3"><StatusBadge status={ms.status} size="sm" /></td>
-							<td
-								class="hidden px-4 py-3 text-sm text-muted-foreground md:table-cell"
-								>{fmtDate(ms.due_date)}</td
-							>
-							<td
-								class="hidden px-4 py-3 text-sm text-muted-foreground xl:table-cell"
-								>{fmtDate(ms.paid_date)}</td
-							>
-							<td class="hidden px-4 py-3 text-sm text-muted-foreground lg:table-cell">
-								{ms.slices.length}
-							</td>
-							<td class="px-4 py-3">
-								<div class="flex items-center gap-1">
-									<button
-										type="button"
-										onclick={() => {
-											msPreviewData = { kind: 'saved', milestone: ms };
-											msPreviewOpen = true;
-										}}
-										class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-										aria-label="Preview milestone"
+								{#if ms.description}
+									<p class="mt-2 text-sm text-muted-foreground line-clamp-2">
+										{plainDescriptionSnippet(ms.description)}
+									</p>
+								{/if}
+								<div class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
+									<span
+										>Due <span class="font-medium text-foreground">{fmtDate(ms.due_date)}</span></span
 									>
-										<Eye size={14} />
-									</button>
-									<button
-										onclick={() => {
-											msEditing = ms;
-											msEditTitle = ms.title;
-											msEditDescription = ms.description ?? '';
-											msEditSlices =
-												ms.slices.length > 0
-													? ms.slices.map((s) => ({
-															title: s.title,
-															notes: s.notes ?? '',
-															estimate: s.estimate ?? '',
-															owner_user_id: s.owner_user_id ?? '',
-															status: normalizeSliceStatus(s.status),
-															depends_on: s.depends_on ?? ''
-														}))
-													: [emptySlice()];
-											hydrateEditFields(ms);
-											msEditOpen = true;
-										}}
-										class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-										aria-label="Edit"
+									<span
+										>Paid <span class="font-medium text-foreground">{fmtDate(ms.paid_date)}</span></span
 									>
-										<Pencil size={14} />
-									</button>
-									<button
-										onclick={() => {
-											msDeletingId = ms.id;
-											msDeleteOpen = true;
-										}}
-										class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-red-900/30 hover:text-red-400"
-										aria-label="Delete"
-									>
-										<Trash2 size={14} />
-									</button>
 								</div>
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+							</div>
+							<div class="flex shrink-0 flex-wrap gap-2">
+								<button
+									type="button"
+									onclick={() => {
+										msPreviewData = { kind: 'saved', milestone: ms };
+										msPreviewOpen = true;
+									}}
+									class="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary"
+								>
+									<Eye size={14} />
+									Preview
+								</button>
+								<button
+									type="button"
+									onclick={() => {
+										msEditing = ms;
+										msEditTitle = ms.title;
+										msEditDescription = ms.description ?? '';
+										hydrateEditFields(ms);
+										msEditSlices =
+											ms.slices.length > 0
+												? ms.slices.map((s) => ({
+														title: s.title,
+														notes: s.notes ?? '',
+														estimate: s.estimate ?? '',
+														owner_user_id: s.owner_user_id ?? '',
+														status: normalizeSliceStatus(s.status),
+														depends_on: s.depends_on ?? '',
+														phase: normalizeSlicePhaseValue(s.phase)
+													}))
+												: [emptySlice(msEditPhase)];
+										msEditOpen = true;
+									}}
+									class="rounded-lg bg-secondary px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary/80"
+								>
+									Edit
+								</button>
+								<button
+									type="button"
+									onclick={() => {
+										msDeletingId = ms.id;
+										msDeleteOpen = true;
+									}}
+									class="rounded-lg bg-red-900/30 px-3 py-2 text-xs font-medium text-red-400 hover:bg-red-900/50"
+								>
+									Delete
+								</button>
+							</div>
+						</div>
+					</div>
+
+					{#if ms.slices.length > 0}
+						<div class="space-y-5 p-4 sm:p-5 sm:pt-4">
+							{#each groupDbSlicesByPhase(ms.slices) as group}
+								<div>
+									<h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
+										{phaseLabel(group.phase)}
+									</h3>
+									<ul class="space-y-2">
+										{#each group.slices as sl}
+											<li class="rounded-lg border border-border bg-secondary/15 p-3">
+												<div class="flex flex-wrap items-start justify-between gap-2">
+													<p class="min-w-0 text-sm font-medium text-foreground">{sl.title}</p>
+													<StatusBadge status={normalizeSliceStatus(sl.status)} size="sm" />
+												</div>
+												{#if sl.notes?.trim()}
+													<p class="mt-1.5 whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
+														{sl.notes}
+													</p>
+												{/if}
+												<dl class="mt-2 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-2">
+													{#if sl.estimate?.trim()}
+														<div>
+															<span class="text-muted-foreground">Estimate</span>
+															<span class="ml-1 font-medium text-foreground">{sl.estimate}</span>
+														</div>
+													{/if}
+													{#if sl.owner_user_id}
+														<div>
+															<span class="text-muted-foreground">Owner</span>
+															<span class="ml-1 font-medium text-foreground">
+																{orgUserName(sl.owner_user_id) || '—'}
+															</span>
+														</div>
+													{/if}
+													{#if sl.depends_on?.trim()}
+														<div class="sm:col-span-2">
+															<span class="text-muted-foreground">Dependency</span>
+															<span class="ml-1 font-medium text-foreground">{sl.depends_on}</span>
+														</div>
+													{/if}
+												</dl>
+											</li>
+										{/each}
+									</ul>
+								</div>
+							{/each}
+						</div>
+					{:else}
+						<div class="border-t border-border px-4 py-3 sm:px-5">
+							<p class="text-xs text-muted-foreground">
+								No slices yet — edit this milestone to add work slices by phase.
+							</p>
+						</div>
+					{/if}
+				</article>
+			{/each}
 		</div>
 	{/if}
 
@@ -804,7 +762,7 @@
 						Section 4 · Slices
 					</p>
 					<p class="mb-3 text-xs text-muted-foreground">
-						Each slice is a concrete unit of work inside this milestone — with context, owner, and estimate.
+						Assign each slice to a lifecycle phase (Discovery → Closed). Phases organize work on the list and in previews.
 					</p>
 					<div class="space-y-3">
 						{#each msEditSlices as row, i (i)}
@@ -815,7 +773,7 @@
 										type="button"
 										onclick={() => {
 											msEditSlices = msEditSlices.filter((_, j) => j !== i);
-											if (msEditSlices.length === 0) msEditSlices = [emptySlice()];
+											if (msEditSlices.length === 0) msEditSlices = [emptySlice(msEditPhase)];
 										}}
 										class="rounded-lg border border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-secondary"
 									>
@@ -827,6 +785,21 @@
 									placeholder="Slice title *"
 									class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-medium text-foreground"
 								/>
+								<div>
+									<label
+										class="mb-1 block text-xs font-medium text-muted-foreground"
+										for="ms-e-slice-phase-{i}">Phase</label
+									>
+									<select
+										id="ms-e-slice-phase-{i}"
+										bind:value={row.phase}
+										class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+									>
+										{#each PHASE_OPTIONS as p}
+											<option value={p.value}>{p.label}</option>
+										{/each}
+									</select>
+								</div>
 								<div>
 									<label class="mb-1 block text-xs font-medium text-muted-foreground" for="ms-e-slice-notes-{i}"
 										>Notes</label
@@ -898,7 +871,7 @@
 					<button
 						type="button"
 						onclick={() => {
-							msEditSlices = [...msEditSlices, emptySlice()];
+							msEditSlices = [...msEditSlices, emptySlice(msEditPhase)];
 						}}
 						class="mt-3 text-sm font-medium text-primary hover:underline"
 					>
@@ -1170,33 +1143,48 @@
 
 			{#if m.slices.length > 0}
 				<div>
-					<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Slices</p>
-					<ul class="space-y-3">
-						{#each m.slices as sl}
-							<li class="rounded-lg border border-border bg-secondary/10 p-3 font-mono text-xs leading-relaxed text-foreground">
-								<p><span class="text-muted-foreground">Title:</span> {sl.title}</p>
-								{#if sl.notes?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Notes:</span> {sl.notes}</p>
-								{/if}
-								{#if sl.estimate?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Estimate:</span> {sl.estimate}</p>
-								{/if}
-								{#if sl.owner_user_id}
-									<p class="mt-1">
-										<span class="text-muted-foreground">Owner:</span>
-										{orgUserName(sl.owner_user_id) || '—'}
-									</p>
-								{/if}
-								<p class="mt-1">
-									<span class="text-muted-foreground">Status:</span>
-									{sliceStatusLabel(normalizeSliceStatus(sl.status))}
-								</p>
-								{#if sl.depends_on?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Dependency:</span> {sl.depends_on}</p>
-								{/if}
-							</li>
+					<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						Slices by phase
+					</p>
+					<div class="space-y-4">
+						{#each groupDbSlicesByPhase(m.slices) as group}
+							<div>
+								<p class="mb-2 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<ul class="space-y-2">
+									{#each group.slices as sl}
+										<li class="rounded-lg border border-border bg-secondary/10 p-3 text-xs leading-relaxed text-foreground">
+											<p class="font-medium">{sl.title}</p>
+											{#if sl.notes?.trim()}
+												<p class="mt-1 text-muted-foreground">{sl.notes}</p>
+											{/if}
+											{#if sl.estimate?.trim()}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Estimate:</span>
+													{sl.estimate}
+												</p>
+											{/if}
+											{#if sl.owner_user_id}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Owner:</span>
+													{orgUserName(sl.owner_user_id) || '—'}
+												</p>
+											{/if}
+											<p class="mt-1">
+												<span class="text-muted-foreground">Status:</span>
+												{sliceStatusLabel(normalizeSliceStatus(sl.status))}
+											</p>
+											{#if sl.depends_on?.trim()}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Dependency:</span>
+													{sl.depends_on}
+												</p>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
 						{/each}
-					</ul>
+					</div>
 				</div>
 			{/if}
 
@@ -1307,35 +1295,50 @@
 				</dl>
 			</div>
 
-			{#if d.slices.some((s) => s.title.trim())}
+			{#if groupDraftSlicesByPhase(d.slices, (s) => !!s.title.trim()).length > 0}
 				<div>
-					<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Slices</p>
-					<ul class="space-y-3">
-						{#each d.slices.filter((s) => s.title.trim()) as sl}
-							<li class="rounded-lg border border-border bg-secondary/10 p-3 font-mono text-xs leading-relaxed text-foreground">
-								<p><span class="text-muted-foreground">Title:</span> {sl.title}</p>
-								{#if sl.notes?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Notes:</span> {sl.notes}</p>
-								{/if}
-								{#if sl.estimate?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Estimate:</span> {sl.estimate}</p>
-								{/if}
-								{#if sl.owner_user_id}
-									<p class="mt-1">
-										<span class="text-muted-foreground">Owner:</span>
-										{orgUserName(sl.owner_user_id) || '—'}
-									</p>
-								{/if}
-								<p class="mt-1">
-									<span class="text-muted-foreground">Status:</span>
-									{sliceStatusLabel(sl.status)}
-								</p>
-								{#if sl.depends_on?.trim()}
-									<p class="mt-1"><span class="text-muted-foreground">Dependency:</span> {sl.depends_on}</p>
-								{/if}
-							</li>
+					<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+						Slices by phase
+					</p>
+					<div class="space-y-4">
+						{#each groupDraftSlicesByPhase(d.slices, (s) => !!s.title.trim()) as group}
+							<div>
+								<p class="mb-2 text-xs font-semibold text-primary">{phaseLabel(group.phase)}</p>
+								<ul class="space-y-2">
+									{#each group.slices as sl}
+										<li class="rounded-lg border border-border bg-secondary/10 p-3 text-xs leading-relaxed text-foreground">
+											<p class="font-medium">{sl.title}</p>
+											{#if sl.notes?.trim()}
+												<p class="mt-1 text-muted-foreground">{sl.notes}</p>
+											{/if}
+											{#if sl.estimate?.trim()}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Estimate:</span>
+													{sl.estimate}
+												</p>
+											{/if}
+											{#if sl.owner_user_id}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Owner:</span>
+													{orgUserName(sl.owner_user_id) || '—'}
+												</p>
+											{/if}
+											<p class="mt-1">
+												<span class="text-muted-foreground">Status:</span>
+												{sliceStatusLabel(sl.status)}
+											</p>
+											{#if sl.depends_on?.trim()}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Dependency:</span>
+													{sl.depends_on}
+												</p>
+											{/if}
+										</li>
+									{/each}
+								</ul>
+							</div>
 						{/each}
-					</ul>
+					</div>
 				</div>
 			{/if}
 		</div>

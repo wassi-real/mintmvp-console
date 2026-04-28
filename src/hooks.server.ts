@@ -6,9 +6,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.supabase = supabase;
 
 	const {
+		data: { user },
+		error: userError
+	} = await supabase.auth.getUser();
+	const {
 		data: { session }
 	} = await supabase.auth.getSession();
-	event.locals.session = session;
+
+	// Only trust client-held session after server validates the user (avoids spoofed cookie payloads).
+	event.locals.session = userError || !user ? null : session ?? null;
 
 	// API routes handle their own auth via bearer token
 	if (event.url.pathname.startsWith('/api/v1/')) {
@@ -26,14 +32,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 	const isCronApi = event.url.pathname.startsWith('/api/cron/');
 
 	if (isRootRoute) {
-		throw redirect(303, session ? '/dashboard' : '/login');
+		throw redirect(303, event.locals.session ? '/dashboard' : '/login');
 	}
 
-	if (!session && !isAuthRoute && !isPublicMonitoringStatus && !isCronApi) {
+	if (!event.locals.session && !isAuthRoute && !isPublicMonitoringStatus && !isCronApi) {
 		throw redirect(303, '/login');
 	}
 
-	if (session && isAuthRoute) {
+	if (event.locals.session && isAuthRoute) {
 		throw redirect(303, '/dashboard');
 	}
 
