@@ -3,10 +3,16 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import { fade } from 'svelte/transition';
 	import { enhance } from '$app/forms';
 	import { page } from '$app/stores';
-	import { Eye, ArrowLeft } from 'lucide-svelte';
-	import { groupDraftSlicesByPhase, normalizeSlicePhaseValue } from '$lib/milestone-shared';
+	import { Eye, ArrowLeft, CheckCircle2, AlertTriangle } from 'lucide-svelte';
+	import {
+		displaySliceSchedule,
+		groupDraftSlicesByPhase,
+		normalizeSlicePhaseValue,
+		rollupMilestoneSliceSchedule
+	} from '$lib/milestone-shared';
 
 	let { data } = $props();
 
@@ -18,6 +24,8 @@
 		status: string;
 		depends_on: string;
 		phase: string;
+		start_date: string;
+		deadline: string;
 	};
 
 	function emptySlice(milestonePhase?: string): SliceRow {
@@ -28,7 +36,9 @@
 			owner_user_id: '',
 			status: 'pending',
 			depends_on: '',
-			phase: normalizeSlicePhaseValue(milestonePhase)
+			phase: normalizeSlicePhaseValue(milestonePhase),
+			start_date: '',
+			deadline: ''
 		};
 	}
 
@@ -141,7 +151,9 @@
 					owner_user_id: s.owner_user_id.trim() || null,
 					depends_on: s.depends_on.trim() || null,
 					status: s.status,
-					phase: normalizeSlicePhaseValue(s.phase)
+					phase: normalizeSlicePhaseValue(s.phase),
+					start_date: s.start_date?.trim() ? s.start_date.trim() : null,
+					deadline: s.deadline?.trim() ? s.deadline.trim() : null
 				}))
 		);
 	}
@@ -178,6 +190,18 @@
 			year: 'numeric'
 		});
 	}
+
+	let saveToast = $state<{ kind: 'success' | 'error'; message: string } | null>(null);
+	let toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function pushToast(kind: 'success' | 'error', message: string) {
+		if (toastTimer) clearTimeout(toastTimer);
+		saveToast = { kind, message };
+		toastTimer = setTimeout(() => {
+			saveToast = null;
+			toastTimer = undefined;
+		}, 6000);
+	}
 </script>
 
 <div class="mx-auto w-full max-w-4xl">
@@ -195,9 +219,18 @@
 	<form
 		method="POST"
 		action="?/createMilestone"
-		use:enhance={() => {
-			return async ({ update }) => {
-				await update();
+		use:enhance={({ formData }) => {
+			formData.delete('slices_json');
+			formData.set('slices_json', slicesJsonPayload(msCreateSlices));
+			return async ({ result, update }) => {
+				await update({ reset: false });
+				if (result.type === 'failure') {
+					const err = result.data?.error;
+					pushToast(
+						'error',
+						typeof err === 'string' ? err : 'Could not create milestone or save slices.'
+					);
+				}
 			};
 		}}
 		class="flex w-full flex-col rounded-xl border border-border bg-card p-4 sm:p-6"
@@ -498,7 +531,7 @@
 				Section 4 · Slices
 			</p>
 			<p class="mb-3 text-xs text-muted-foreground">
-				Assign each slice to a lifecycle phase. New slices default to the milestone’s current phase below — change per slice as needed.
+				Assign phase, effort estimate, and optional start / deadline dates per slice — summaries appear on the milestones list when you save.
 			</p>
 			<div class="space-y-3">
 				{#each msCreateSlices as row, i (i)}
@@ -565,12 +598,38 @@
 							</div>
 							<div>
 								<label class="mb-1 block text-xs font-medium text-muted-foreground" for="ms-n-slice-est-{i}"
-									>Estimate</label
+									>Effort estimate</label
 								>
 								<input
 									id="ms-n-slice-est-{i}"
 									bind:value={row.estimate}
-									placeholder="e.g. 2h"
+									placeholder="e.g. 2h or 1d"
+									class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+								/>
+							</div>
+							<div>
+								<label class="mb-1 block text-xs font-medium text-muted-foreground" for="ms-n-slice-start-{i}"
+									>Start date</label
+								>
+								<input
+									id="ms-n-slice-start-{i}"
+									type="text"
+									autocomplete="off"
+									bind:value={row.start_date}
+									placeholder="e.g. 2026-01-15 or Week of Feb 3"
+									class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+								/>
+							</div>
+							<div>
+								<label class="mb-1 block text-xs font-medium text-muted-foreground" for="ms-n-slice-deadline-{i}"
+									>Deadline</label
+								>
+								<input
+									id="ms-n-slice-deadline-{i}"
+									type="text"
+									autocomplete="off"
+									bind:value={row.deadline}
+									placeholder="e.g. 2026-03-01 or End of sprint"
 									class="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
 								/>
 							</div>
@@ -763,6 +822,25 @@
 		</button>
 	</div>
 </form>
+
+{#if saveToast}
+	<div
+		transition:fade={{ duration: 200 }}
+		class="fixed bottom-6 right-6 z-[100] flex max-w-md items-start gap-3 rounded-lg border px-4 py-3 text-sm shadow-lg {saveToast.kind ===
+		'success'
+			? 'border-emerald-500/40 bg-emerald-950/95 text-emerald-50'
+			: 'border-red-500/40 bg-red-950/95 text-red-50'}"
+		role={saveToast.kind === 'error' ? 'alert' : 'status'}
+		aria-live={saveToast.kind === 'error' ? 'assertive' : 'polite'}
+	>
+		{#if saveToast.kind === 'success'}
+			<CheckCircle2 size={20} class="mt-0.5 shrink-0 text-emerald-400" strokeWidth={2.25} />
+		{:else}
+			<AlertTriangle size={20} class="mt-0.5 shrink-0 text-red-400" strokeWidth={2.25} />
+		{/if}
+		<span class="leading-snug">{saveToast.message}</span>
+	</div>
+{/if}
 </div>
 
 <Modal bind:open={msPreviewOpen} title="Milestone preview">
@@ -787,6 +865,36 @@
 						<span>&middot; Owner {orgUserName(d.ownerUserId) || '—'}</span>
 					{/if}
 				</div>
+				{#if d.slices.some((s) => s.title.trim())}
+					{@const draftRoll = rollupMilestoneSliceSchedule(
+						d.slices
+							.filter((s) => s.title.trim())
+							.map((s) => ({
+								start_date: s.start_date?.trim() || null,
+								deadline: s.deadline?.trim() || null
+							}))
+					)}
+					{#if draftRoll.earliestStart || draftRoll.latestDeadline || draftRoll.soonestDeadline}
+						<p class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+							<span class="font-semibold text-foreground/90">Slices schedule</span>
+							{#if draftRoll.earliestStart}
+								<span
+									>Earliest start <span class="font-medium text-foreground">{displaySliceSchedule(draftRoll.earliestStart)}</span></span
+								>
+							{/if}
+							{#if draftRoll.latestDeadline}
+								<span
+									>Latest deadline <span class="font-medium text-foreground">{displaySliceSchedule(draftRoll.latestDeadline)}</span></span
+								>
+							{/if}
+							{#if draftRoll.soonestDeadline}
+								<span
+									>Next deadline <span class="font-medium text-foreground">{displaySliceSchedule(draftRoll.soonestDeadline)}</span></span
+								>
+							{/if}
+						</p>
+					{/if}
+				{/if}
 			</div>
 			<div>
 				<p class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Overview</p>
@@ -874,8 +982,20 @@
 											{/if}
 											{#if sl.estimate?.trim()}
 												<p class="mt-1">
-													<span class="text-muted-foreground">Estimate:</span>
+													<span class="text-muted-foreground">Effort estimate:</span>
 													{sl.estimate}
+												</p>
+											{/if}
+											{#if sl.start_date}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Start:</span>
+													{displaySliceSchedule(sl.start_date)}
+												</p>
+											{/if}
+											{#if sl.deadline}
+												<p class="mt-1">
+													<span class="text-muted-foreground">Deadline:</span>
+													{displaySliceSchedule(sl.deadline)}
 												</p>
 											{/if}
 											{#if sl.owner_user_id}

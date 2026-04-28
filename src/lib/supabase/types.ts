@@ -716,6 +716,8 @@ export type Database = {
 						| 'closed';
 					sort_order: number;
 					created_at: string;
+					start_date: string | null;
+					deadline: string | null;
 				};
 				Insert: {
 					id?: string;
@@ -738,6 +740,8 @@ export type Database = {
 						| 'closed';
 					sort_order?: number;
 					created_at?: string;
+					start_date?: string | null;
+					deadline?: string | null;
 				};
 				Update: {
 					id?: string;
@@ -760,6 +764,8 @@ export type Database = {
 						| 'closed';
 					sort_order?: number;
 					created_at?: string;
+					start_date?: string | null;
+					deadline?: string | null;
 				};
 				Relationships: [];
 			};

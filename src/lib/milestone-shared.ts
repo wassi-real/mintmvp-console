@@ -20,6 +20,46 @@ export const PHASES = [
 export const SLICE_STATUSES = ['pending', 'in_progress', 'done', 'blocked'] as const;
 export const BILL_STATUSES = ['draft', 'sent', 'paid', 'overdue'] as const;
 
+function normalizeSliceScheduleField(v: unknown): string | null {
+	if (v == null || v === '') return null;
+	const s = String(v).trim();
+	return s.length ? s : null;
+}
+
+/**
+ * Parses a pasted schedule string for sorting/rollups. ISO YYYY-MM-DD uses local noon;
+ * other values use `Date.parse` when it yields a finite time.
+ */
+export function parseScheduleToTime(raw: string | null | undefined): number | null {
+	if (raw == null) return null;
+	const s = raw.trim();
+	if (!s) return null;
+	if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+		return new Date(s + 'T12:00:00').getTime();
+	}
+	const ms = Date.parse(s);
+	return Number.isNaN(ms) ? null : ms;
+}
+
+/** Sort key for slice schedule text; unparsable values sort last. */
+export function scheduleSortKey(raw: string | null | undefined): number {
+	return parseScheduleToTime(raw) ?? Number.MAX_SAFE_INTEGER;
+}
+
+/** List/preview display: pretty ISO dates, otherwise raw pasted text. */
+export function displaySliceSchedule(raw: string | null | undefined): string {
+	if (!raw?.trim()) return '--';
+	const t = raw.trim();
+	if (/^\d{4}-\d{2}-\d{2}$/.test(t)) {
+		return new Date(t + 'T12:00:00').toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
+		});
+	}
+	return t;
+}
+
 export type ParsedSlice = {
 	title: string;
 	status: (typeof SLICE_STATUSES)[number];
@@ -28,6 +68,8 @@ export type ParsedSlice = {
 	estimate: string;
 	depends_on: string | null;
 	phase: (typeof PHASES)[number];
+	start_date: string | null;
+	deadline: string | null;
 };
 
 export function parseSlicesJson(raw: unknown, allowedUserIds: Set<string>): ParsedSlice[] {
@@ -51,6 +93,8 @@ export function parseSlicesJson(raw: unknown, allowedUserIds: Set<string>): Pars
 			const depends_on = depRaw || null;
 			let slicePhase = String((item as { phase?: unknown }).phase ?? 'discovery').trim();
 			if (!PHASES.includes(slicePhase as (typeof PHASES)[number])) slicePhase = 'discovery';
+			const start_date = normalizeSliceScheduleField((item as { start_date?: unknown }).start_date);
+			const deadline = normalizeSliceScheduleField((item as { deadline?: unknown }).deadline);
 			out.push({
 				title,
 				status: status as (typeof SLICE_STATUSES)[number],
@@ -58,7 +102,9 @@ export function parseSlicesJson(raw: unknown, allowedUserIds: Set<string>): Pars
 				owner_user_id,
 				estimate,
 				depends_on,
-				phase: slicePhase as (typeof PHASES)[number]
+				phase: slicePhase as (typeof PHASES)[number],
+				start_date,
+				deadline
 			});
 		}
 		return out;
@@ -77,14 +123,81 @@ export function normalizeSlicePhaseValue(p: string | null | undefined): (typeof 
 	return 'discovery';
 }
 
-/** Sort slices by workflow phase order, then DB sort_order. */
+/** Sort slices by phase, then planned start, deadline, then creation order. */
 export function sortMilestoneSlicesFromDb(slices: Tables<'milestone_slices'>[]): Tables<'milestone_slices'>[] {
 	return [...slices].sort((a, b) => {
 		const ia = PHASES.indexOf(normalizeSlicePhaseValue(a.phase));
 		const ib = PHASES.indexOf(normalizeSlicePhaseValue(b.phase));
 		if (ia !== ib) return ia - ib;
+		const sta = scheduleSortKey(a.start_date);
+		const stb = scheduleSortKey(b.start_date);
+		if (sta !== stb) return sta - stb;
+		const da = scheduleSortKey(a.deadline);
+		const db = scheduleSortKey(b.deadline);
+		if (da !== db) return da - db;
 		return (a.sort_order ?? 0) - (b.sort_order ?? 0);
 	});
+}
+
+export type MilestoneSliceScheduleRollup = {
+	/** Minimum slice start_date among slices that have one */
+	earliestStart: string | null;
+	/** Maximum slice deadline among slices that have one */
+	latestDeadline: string | null;
+	/**
+	 * Best “next” deadline: earliest date on/after today if any,
+	 * otherwise earliest deadline overall (may be in the past).
+	 */
+	soonestDeadline: string | null;
+};
+
+/** Aggregate slice dates onto the milestone for list/overview context. */
+export function rollupMilestoneSliceSchedule(
+	slices: Pick<Tables<'milestone_slices'>, 'start_date' | 'deadline'>[]
+): MilestoneSliceScheduleRollup {
+	let earliestStart: string | null = null;
+	let latestDeadline: string | null = null;
+	let soonestOverall: string | null = null;
+	let bestStart = Infinity;
+	let bestLatestDl = -Infinity;
+	let bestSoonest = Infinity;
+
+	const today = new Date();
+	const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+	const todayKey = parseScheduleToTime(todayStr);
+	let bestFuture = Infinity;
+	let soonestFuture: string | null = null;
+
+	for (const s of slices) {
+		const sd = s.start_date;
+		const dd = s.deadline;
+		const sdT = parseScheduleToTime(sd);
+		if (sdT != null) {
+			if (sdT < bestStart) {
+				bestStart = sdT;
+				earliestStart = sd;
+			}
+		}
+		const ddT = parseScheduleToTime(dd);
+		if (ddT != null) {
+			if (ddT > bestLatestDl) {
+				bestLatestDl = ddT;
+				latestDeadline = dd;
+			}
+			if (ddT < bestSoonest) {
+				bestSoonest = ddT;
+				soonestOverall = dd;
+			}
+			if (todayKey != null && ddT >= todayKey && ddT < bestFuture) {
+				bestFuture = ddT;
+				soonestFuture = dd;
+			}
+		}
+	}
+
+	const soonestDeadline = soonestFuture ?? soonestOverall;
+
+	return { earliestStart, latestDeadline, soonestDeadline };
 }
 
 /** Group sorted DB slices under phase headings (fixed phase order). */
@@ -113,6 +226,14 @@ export function groupDraftSlicesByPhase<T extends { phase?: string | null }>(
 		const ia = PHASES.indexOf(normalizeSlicePhaseValue(a.row.phase));
 		const ib = PHASES.indexOf(normalizeSlicePhaseValue(b.row.phase));
 		if (ia !== ib) return ia - ib;
+		const ra = a.row as { start_date?: string | null; deadline?: string | null };
+		const rb = b.row as { start_date?: string | null; deadline?: string | null };
+		const sta = scheduleSortKey(ra.start_date);
+		const stb = scheduleSortKey(rb.start_date);
+		if (sta !== stb) return sta - stb;
+		const da = scheduleSortKey(ra.deadline);
+		const db = scheduleSortKey(rb.deadline);
+		if (da !== db) return da - db;
 		return a.i - b.i;
 	});
 	const sortedRows = indexed.map((x) => x.row);

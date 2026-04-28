@@ -160,6 +160,8 @@ export async function createMilestone({ request, locals, params }: MilestoneRequ
 					depends_on: s.depends_on,
 					status: s.status,
 					phase: s.phase,
+					start_date: s.start_date,
+					deadline: s.deadline,
 					sort_order: i
 				}))
 			);
@@ -338,6 +340,8 @@ export async function updateMilestone({ request, locals, params }: MilestoneRequ
 					depends_on: s.depends_on,
 					status: s.status,
 					phase: s.phase,
+					start_date: s.start_date,
+					deadline: s.deadline,
 					sort_order: i
 				}))
 			);
