@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { authenticateApi, isErrorResponse } from '../../../../auth';
 
-const UPDATE_FIELDS = ['title', 'content'] as const;
+const UPDATE_FIELDS = ['title', 'content', 'folder_id'] as const;
 
 function buildPatch(body: Record<string, unknown>) {
 	const patch: Record<string, unknown> = {};
@@ -28,7 +28,20 @@ export const GET: RequestHandler = async (event) => {
 
 	if (error) return json({ error: error.message }, { status: 500 });
 	if (!data) return json({ error: 'Report not found' }, { status: 404 });
-	return json({ data });
+
+	let meta: { folder: Record<string, unknown> | null } = { folder: null };
+	const row = data as { folder_id?: string | null };
+	if (row.folder_id) {
+		const { data: fo } = await ctx.supabase
+			.from('report_folders')
+			.select('*')
+			.eq('id', row.folder_id)
+			.eq('project_id', ctx.projectId)
+			.maybeSingle();
+		meta = { folder: fo ?? null };
+	}
+
+	return json({ data, meta });
 };
 
 export const PATCH: RequestHandler = async (event) => {
@@ -44,6 +57,23 @@ export const PATCH: RequestHandler = async (event) => {
 	const patch = buildPatch(body);
 	if (Object.keys(patch).length === 0) {
 		return json({ error: `No updatable fields. Allowed: ${UPDATE_FIELDS.join(', ')}` }, { status: 400 });
+	}
+
+	if (Object.prototype.hasOwnProperty.call(patch, 'folder_id')) {
+		const raw = patch.folder_id;
+		if (raw === null || raw === '') {
+			patch.folder_id = null;
+		} else {
+			const fid = String(raw).trim();
+			const { data: fo } = await ctx.supabase
+				.from('report_folders')
+				.select('id')
+				.eq('id', fid)
+				.eq('project_id', ctx.projectId)
+				.maybeSingle();
+			if (!fo) return json({ error: 'folder_id not found on this project' }, { status: 400 });
+			patch.folder_id = fid;
+		}
 	}
 
 	const { data, error } = await (ctx.supabase.from('reports') as any)

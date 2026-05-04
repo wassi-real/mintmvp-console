@@ -227,17 +227,25 @@
 			id: 'reports',
 			label: 'Reports',
 			paramName: 'reportId',
-			get: { desc: 'List all reports', response: '{ "data": [ { id, title, content, created_by, ... } ] }' },
+			get: {
+				desc: 'List all reports plus folders and meta.reports_by_folder',
+				response:
+					'{ "data": [ { id, folder_id, title, content, created_by, … } ], "folders": [ { id, name, icon, sort_order, … } ], "meta": { "reports_by_folder": { "uncategorized": [...], "<folder_uuid>": [...] } } }'
+			},
+			getOne: {
+				desc: 'Get one report; meta.folder is set when folder_id references a folder',
+				response: '{ "data": { …report… }, "meta": { "folder": null | { …folder row… } } }'
+			},
 			post: {
 				desc: 'Create a report',
-				body: '{ "title": "Sprint 1 Summary", "content": "# Report\\n..." }',
+				body: '{ "title": "Sprint 1 Summary", "content": "# Report\\n...", "folder_id": "<uuid-or-omit>" }',
 				required: ['title'],
-				optional: ['content']
+				optional: ['content', 'folder_id']
 			},
 			patch: {
 				desc: 'Update a report (partial)',
-				body: '{ "title": "Sprint 1 Summary (final)", "content": "# Updated\\n..." }',
-				optional: ['title', 'content']
+				body: '{ "title": "...", "content": "...", "folder_id": null }',
+				optional: ['title', 'content', 'folder_id']
 			},
 			del: { desc: 'Delete a report' }
 		}

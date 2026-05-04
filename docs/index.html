@@ -40,6 +40,7 @@
 				<a href="#authentication">Authentication</a>
 				<a href="#endpoints">Endpoints</a>
 				<a href="#milestones-api">Milestones API</a>
+				<a href="#reports-api">Reports API</a>
 				<a href="#github">GitHub Integration</a>
 				<a href="#public-status">Public status</a>
 				<a href="#enums">Enum Values</a>
@@ -182,6 +183,20 @@
 						<p class="muted" style="margin-top: 0.75rem">
 							Full details in
 							<a href="./api-milestones.md">docs/api-milestones.md</a>.
+						</p>
+					</div>
+				</section>
+
+				<section id="reports-api" style="margin-top: 1.5rem">
+					<div class="card">
+						<h3>Reports API</h3>
+						<p class="muted">
+							<code class="inline-code">GET /api/v1/projects/&lt;project_id&gt;/reports</code> returns all reports (<strong>data</strong>), all report folders (<strong>folders</strong>), and <strong>meta.reports_by_folder</strong> with <strong>uncategorized</strong> plus one array per folder id.
+							<code class="inline-code">GET .../reports/&lt;report_id&gt;</code> returns the report and <strong>meta.folder</strong> when it belongs to a folder.
+							<code class="inline-code">POST</code> / <code class="inline-code">PATCH</code> accept optional <strong>folder_id</strong>.
+						</p>
+						<p class="muted" style="margin-top: 0.75rem">
+							Full details in <a href="./api-reports.md">docs/api-reports.md</a>.
 						</p>
 					</div>
 				</section>

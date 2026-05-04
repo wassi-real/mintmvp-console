@@ -1135,10 +1135,41 @@ export type Database = {
 				};
 				Relationships: [];
 			};
+			report_folders: {
+				Row: {
+					id: string;
+					project_id: string;
+					name: string;
+					icon: string;
+					sort_order: number;
+					created_at: string;
+					updated_at: string;
+				};
+				Insert: {
+					id?: string;
+					project_id: string;
+					name: string;
+					icon?: string;
+					sort_order?: number;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Update: {
+					id?: string;
+					project_id?: string;
+					name?: string;
+					icon?: string;
+					sort_order?: number;
+					created_at?: string;
+					updated_at?: string;
+				};
+				Relationships: [];
+			};
 			reports: {
 			Row: {
 				id: string;
 				project_id: string;
+				folder_id: string | null;
 				title: string;
 				content: string;
 				created_by: string;
@@ -1148,6 +1179,7 @@ export type Database = {
 			Insert: {
 				id?: string;
 				project_id: string;
+				folder_id?: string | null;
 				title: string;
 				content?: string;
 				created_by?: string;
@@ -1157,6 +1189,7 @@ export type Database = {
 			Update: {
 				id?: string;
 				project_id?: string;
+				folder_id?: string | null;
 				title?: string;
 				content?: string;
 				created_by?: string;
