@@ -2,8 +2,9 @@ import type { PageServerLoad, Actions } from './$types';
 import type { Tables } from '$lib/supabase/types';
 import { fail } from '@sveltejs/kit';
 import { logActivity, getActorName } from '$lib/server/activity';
+import { VIEW_MODE_COOKIE, parseViewMode } from '$lib/view-mode';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const { supabase } = locals;
 
 	const [projectsRes, deploymentsRes, incidentsRes] = await Promise.all([
@@ -27,7 +28,10 @@ export const load: PageServerLoad = async ({ locals }) => {
 		};
 	});
 
-	return { projects: projectList };
+	return {
+		projects: projectList,
+		viewMode: parseViewMode(cookies.get(VIEW_MODE_COOKIE))
+	};
 };
 
 export const actions: Actions = {

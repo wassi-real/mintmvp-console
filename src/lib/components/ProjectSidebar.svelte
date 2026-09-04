@@ -17,15 +17,27 @@
 		Play,
 		Settings2,
 		ScrollText,
+		PanelLeftClose,
+		PanelLeftOpen,
 		X
 	} from 'lucide-svelte';
 	import { page } from '$app/stores';
+	import { fade, fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 
 	let {
 		projectId,
+		collapsed = false,
+		onToggleCollapse,
 		mobileOpen = false,
 		onClose
-	}: { projectId: string; mobileOpen?: boolean; onClose?: () => void } = $props();
+	}: {
+		projectId: string;
+		collapsed?: boolean;
+		onToggleCollapse?: () => void;
+		mobileOpen?: boolean;
+		onClose?: () => void;
+	} = $props();
 
 	type NavLink = { path: string; label: string; icon: any; exact?: boolean };
 	type NavGroup = { heading: string; links: NavLink[] };
@@ -78,70 +90,176 @@
 		if (exact) return $page.url.pathname === href;
 		return $page.url.pathname.startsWith(href);
 	}
-
-	function handleNavClick() {
-		onClose?.();
-	}
 </script>
 
-{#snippet navItem(link: NavLink)}
+<!-- `rail` = collapsed icon-only mode; labels stay in the DOM so widths animate instead of snapping -->
+{#snippet navItem(link: NavLink, rail: boolean)}
+	{@const active = isActive(link.path, link.exact)}
 	<a
 		href={getHref(link.path)}
-		onclick={handleNavClick}
-		class="flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors {isActive(link.path, link.exact)
+		onclick={() => onClose?.()}
+		title={rail ? link.label : undefined}
+		aria-current={active ? 'page' : undefined}
+		class="nav-item group relative flex items-center rounded-lg py-2.5 text-sm font-medium {rail
+			? 'justify-center px-0'
+			: 'gap-3 px-3'} {active
 			? 'bg-secondary text-foreground'
-			: 'text-muted-foreground hover:bg-secondary hover:text-foreground'}"
+			: 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground'}"
 	>
-		<link.icon size={18} />
-		{link.label}
+		{#if active}
+			<span class="active-bar" aria-hidden="true"></span>
+		{/if}
+		<link.icon size={18} class="shrink-0" />
+		<span class="label" class:label-hidden={rail}>{link.label}</span>
 	</a>
 {/snippet}
 
-{#snippet navContent()}
+{#snippet navContent(rail: boolean)}
 	{#each navGroups as item}
 		{#if isGroup(item)}
-			<div class="mt-5 first:mt-0">
-				<p class="mb-1.5 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">{item.heading}</p>
+			<div class="mt-4 first:mt-0">
+				{#if rail}
+					<div class="mx-auto mb-2 h-px w-7 bg-border" aria-hidden="true"></div>
+				{:else}
+					<p
+						class="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60"
+					>
+						{item.heading}
+					</p>
+				{/if}
 				<div class="flex flex-col gap-0.5">
 					{#each item.links as link}
-						{@render navItem(link)}
+						{@render navItem(link, rail)}
 					{/each}
 				</div>
 			</div>
 		{:else}
-			{@render navItem(item)}
+			{@render navItem(item, rail)}
 		{/if}
 	{/each}
 {/snippet}
 
 <!-- Desktop sidebar -->
-<aside class="fixed top-16 bottom-0 left-0 hidden w-60 border-r border-border bg-card lg:flex">
-	<div class="flex w-full flex-col gap-0.5 overflow-y-auto p-3">
-		{@render navContent()}
+<aside
+	class="sidebar fixed bottom-0 left-0 top-16 z-30 hidden flex-col border-r border-border bg-card lg:flex"
+	aria-label="Project navigation"
+>
+	<div class="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden p-2.5">
+		{@render navContent(collapsed)}
+	</div>
+
+	<div class="border-t border-border p-2">
+		<button
+			type="button"
+			onclick={() => onToggleCollapse?.()}
+			title="{collapsed ? 'Expand' : 'Collapse'} sidebar  ( [ )"
+			aria-label="{collapsed ? 'Expand' : 'Collapse'} sidebar"
+			aria-expanded={!collapsed}
+			class="flex w-full items-center rounded-lg py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground {collapsed
+				? 'justify-center px-0'
+				: 'gap-3 px-3'}"
+		>
+			{#if collapsed}
+				<PanelLeftOpen size={18} class="shrink-0" />
+			{:else}
+				<PanelLeftClose size={18} class="shrink-0" />
+			{/if}
+			<span class="label" class:label-hidden={collapsed}>Collapse</span>
+		</button>
 	</div>
 </aside>
 
-<!-- Mobile sidebar -->
+<!-- Mobile drawer -->
 {#if mobileOpen}
 	<button
-		class="fixed inset-x-0 top-16 bottom-0 z-40 bg-black/60 lg:hidden"
+		class="fixed inset-x-0 bottom-0 top-16 z-40 bg-black/60 lg:hidden"
 		onclick={() => onClose?.()}
 		aria-label="Close sidebar"
+		transition:fade={{ duration: 150 }}
 	></button>
 
-	<aside class="fixed top-16 bottom-0 left-0 z-50 flex w-72 flex-col border-r border-border bg-card shadow-2xl lg:hidden">
-		<div class="mb-2 flex items-center justify-between px-4 pt-4">
+	<aside
+		class="fixed bottom-0 left-0 top-16 z-50 flex w-72 flex-col border-r border-border bg-card shadow-2xl lg:hidden"
+		aria-label="Project navigation"
+		transition:fly={{ x: -288, duration: 220, easing: cubicOut, opacity: 1 }}
+	>
+		<div class="flex items-center justify-between px-4 py-3">
 			<span class="text-sm font-semibold text-foreground">Navigation</span>
 			<button
 				onclick={() => onClose?.()}
-				class="rounded-lg p-2 text-muted-foreground hover:bg-secondary hover:text-foreground"
+				class="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
 				aria-label="Close"
 			>
 				<X size={18} />
 			</button>
 		</div>
 		<div class="flex flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-4">
-			{@render navContent()}
+			{@render navContent(false)}
 		</div>
 	</aside>
 {/if}
+
+<style>
+	.sidebar {
+		/* --sidebar-w is owned by the project layout so the content pane can animate in lockstep */
+		width: var(--sidebar-w, 15rem);
+		transition: width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+		will-change: width;
+	}
+
+	.nav-item {
+		transition:
+			background-color 0.15s ease,
+			color 0.15s ease,
+			padding 220ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.label {
+		white-space: nowrap;
+		overflow: hidden;
+		opacity: 1;
+		max-width: 12rem;
+		transition:
+			opacity 140ms ease,
+			max-width 220ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.label-hidden {
+		opacity: 0;
+		max-width: 0;
+	}
+
+	.active-bar {
+		position: absolute;
+		left: 0;
+		top: 50%;
+		height: 1.15rem;
+		width: 2px;
+		border-radius: 0 2px 2px 0;
+		background: var(--color-foreground);
+		transform: translateY(-50%);
+		animation: bar-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	}
+
+	@keyframes bar-in {
+		from {
+			opacity: 0;
+			transform: translateY(-50%) scaleY(0.3);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(-50%) scaleY(1);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.sidebar,
+		.nav-item,
+		.label {
+			transition: none;
+		}
+		.active-bar {
+			animation: none;
+		}
+	}
+</style>

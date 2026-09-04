@@ -1,7 +1,8 @@
 import type { PageServerLoad } from './$types';
 import type { Tables } from '$lib/supabase/types';
+import { VIEW_MODE_COOKIE, parseViewMode } from '$lib/view-mode';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, cookies }) => {
 	const { supabase } = locals;
 
 	const [projectsRes, tasksRes, testsRes, deploymentsRes, incidentsRes] = await Promise.all([
@@ -29,6 +30,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 			tasksInProgress: projectTasks.filter((t) => t.status === 'in_progress').length,
 			tasksInTesting: projectTasks.filter((t) => t.status === 'testing').length,
 			totalTasks: projectTasks.length,
+			tasksDone: projectTasks.filter((t) => t.status === 'deployed').length,
 			testsPassing: projectTests.every((t) => t.status === 'pass') && projectTests.length > 0,
 			testsPassCount: projectTests.filter((t) => t.status === 'pass').length,
 			testsTotal: projectTests.length,
@@ -37,5 +39,18 @@ export const load: PageServerLoad = async ({ locals }) => {
 		};
 	});
 
-	return { projectSummaries };
+	const totals = {
+		projects: projects.length,
+		activeProjects: projects.filter((p) => p.status === 'active').length,
+		tasksInProgress: tasks.filter((t) => t.status === 'in_progress').length,
+		testsPassing: tests.filter((t) => t.status === 'pass').length,
+		testsTotal: tests.length,
+		openIncidents: incidents.filter((i) => i.status !== 'resolved').length
+	};
+
+	return {
+		projectSummaries,
+		totals,
+		viewMode: parseViewMode(cookies.get(VIEW_MODE_COOKIE))
+	};
 };

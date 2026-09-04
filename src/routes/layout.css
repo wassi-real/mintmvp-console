@@ -67,3 +67,87 @@ body {
 ::-webkit-scrollbar-thumb:hover {
 	background: #52525b;
 }
+
+/* ---- Shared motion + surface utilities (used across every console page) ---- */
+
+/* Scroll containers: reserve the scrollbar so content doesn't shift, and don't chain
+   scroll momentum to the page behind. */
+.scroll-area {
+	scrollbar-gutter: stable;
+	overscroll-behavior: contain;
+}
+
+/* Staggered entrance. Set `--delay` per item; cap the stagger so long lists stay snappy. */
+.rise {
+	animation: rise 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
+	animation-delay: var(--delay, 0ms);
+}
+
+@keyframes rise {
+	from {
+		opacity: 0;
+		transform: translate3d(0, 10px, 0);
+	}
+	to {
+		opacity: 1;
+		transform: translate3d(0, 0, 0);
+	}
+}
+
+.card-hover {
+	transition:
+		border-color 0.18s ease,
+		transform 0.18s ease;
+}
+
+.card-hover:hover {
+	border-color: #3f3f46;
+	transform: translateY(-2px);
+}
+
+.row-hover {
+	transition: background-color 0.15s ease;
+}
+
+.row-hover:hover {
+	background-color: rgba(39, 39, 42, 0.4);
+}
+
+.press:active {
+	transform: scale(0.97);
+}
+
+.live-dot {
+	display: inline-block;
+	height: 7px;
+	width: 7px;
+	border-radius: 9999px;
+	background: var(--color-success);
+	box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+	animation: live-pulse 2.2s ease-out infinite;
+}
+
+@keyframes live-pulse {
+	70% {
+		box-shadow: 0 0 0 7px rgba(34, 197, 94, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rise,
+	.live-dot {
+		animation: none;
+	}
+
+	.rise {
+		opacity: 1;
+		transform: none;
+	}
+
+	.card-hover:hover {
+		transform: none;
+	}
+}

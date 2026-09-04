@@ -1,16 +1,31 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
+	import Modal from '$lib/components/Modal.svelte';
+	import StatusBadge from '$lib/components/StatusBadge.svelte';
+	import PageTitleBar from '$lib/components/PageTitleBar.svelte';
 	import {
-		Settings2, Save, Trash2, Loader, AlertTriangle,
-		Globe, GitBranch, Rocket, Activity, CheckCircle, Github, ChevronRight
+		Save,
+		Trash2,
+		Loader,
+		AlertTriangle,
+		Globe,
+		GitBranch,
+		Rocket,
+		Activity,
+		CheckCircle,
+		Github,
+		ChevronRight
 	} from 'lucide-svelte';
 
 	let { data } = $props();
 
 	// Editable copy — syncs from server data after each successful save
-	let project = $state({ ...data.project });
-	$effect(() => { project = { ...data.project }; });
+	let project = $state(untrack(() => ({ ...data.project })));
+	$effect(() => {
+		project = { ...data.project };
+	});
 
 	// Update form
 	let updateSubmitting = $state(false);
@@ -32,333 +47,384 @@
 	}
 
 	const statusOptions = [
-		{ value: 'active', label: 'Active', description: 'Project is in active development' },
-		{ value: 'maintenance', label: 'Maintenance', description: 'Accepting bug fixes only' },
-		{ value: 'paused', label: 'Paused', description: 'Work is temporarily on hold' }
+		{
+			value: 'active',
+			label: 'Active',
+			description: 'In active development',
+			dot: 'bg-success'
+		},
+		{
+			value: 'maintenance',
+			label: 'Maintenance',
+			description: 'Bug fixes only',
+			dot: 'bg-warning'
+		},
+		{
+			value: 'paused',
+			label: 'Paused',
+			description: 'Temporarily on hold',
+			dot: 'bg-muted-foreground'
+		}
 	];
+
+	const labelClass =
+		'mb-1.5 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground';
+	const inputClass =
+		'w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground transition-colors placeholder:text-muted-foreground focus:border-ring focus:outline-none';
+
+	const createdLabel = $derived(
+		new Date(data.project.created_at).toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		})
+	);
 </script>
 
-<div class="mx-auto max-w-2xl">
-	<!-- Header -->
-	<div class="mb-8 flex items-center gap-3">
-		<Settings2 size={28} class="text-muted-foreground" />
-		<div>
-			<h1 class="text-2xl font-bold text-foreground">Project Settings</h1>
-			<p class="text-sm text-muted-foreground">Manage details and configuration for <strong class="text-foreground">{data.project.name}</strong></p>
+<PageTitleBar title="Settings">
+	{#snippet meta()}
+		<span class="truncate font-medium text-foreground">{data.project.name}</span>
+		<span class="text-muted-foreground/40">·</span>
+		<StatusBadge status={data.project.status} size="sm" />
+	{/snippet}
+</PageTitleBar>
+
+<div class="mx-auto w-full max-w-3xl space-y-4 pb-4">
+	<!-- ─── General ──────────────────────────────────── -->
+	<section class="rise rounded-xl border border-border bg-card">
+		<div class="border-b border-border/60 px-4 py-3 sm:px-5">
+			<h2 class="text-sm font-semibold text-foreground">General</h2>
+			<p class="mt-0.5 text-xs text-muted-foreground">Name, status, and environment URLs</p>
 		</div>
-	</div>
 
-	<!-- ─── General Settings ─────────────────────────── -->
-	<section>
-		<h2 class="mb-4 text-lg font-semibold text-foreground">General</h2>
-		<div class="rounded-xl border border-border bg-card">
-			<form
-				method="POST"
-				action="?/update"
-				use:enhance={() => {
-					updateSubmitting = true;
-					updateError = '';
-					updateSuccess = false;
-					return async ({ result }) => {
-						updateSubmitting = false;
-						if (result.type === 'failure') {
-							updateError = (result.data as any)?.error ?? 'Something went wrong';
-						} else {
-							updateSuccess = true;
-							await invalidateAll();
-							setTimeout(() => (updateSuccess = false), 3000);
-						}
-					};
-				}}
-			>
-				<div class="space-y-5 p-6">
-					{#if updateError}
-						<div class="flex items-center gap-3 rounded-lg bg-red-900/30 px-4 py-3 text-sm text-red-300">
-							<AlertTriangle size={16} class="shrink-0" />
-							{updateError}
-						</div>
-					{/if}
-					{#if updateSuccess}
-						<div class="flex items-center gap-3 rounded-lg bg-green-900/30 px-4 py-3 text-sm text-green-300">
-							<CheckCircle size={16} class="shrink-0" />
-							Project updated successfully
-						</div>
-					{/if}
-
-					<!-- Name -->
-					<div>
-						<label for="s-name" class="mb-1.5 block text-sm font-semibold text-foreground">
-							Project Name <span class="text-destructive">*</span>
-						</label>
-						<input
-							id="s-name"
-							name="name"
-							required
-							bind:value={project.name}
-							class="w-full rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground transition-colors focus:border-primary focus:outline-none"
-							placeholder="My Project"
-						/>
+		<form
+			method="POST"
+			action="?/update"
+			use:enhance={() => {
+				updateSubmitting = true;
+				updateError = '';
+				updateSuccess = false;
+				return async ({ result }) => {
+					updateSubmitting = false;
+					if (result.type === 'failure') {
+						updateError = (result.data as any)?.error ?? 'Something went wrong';
+					} else {
+						updateSuccess = true;
+						await invalidateAll();
+						setTimeout(() => (updateSuccess = false), 3000);
+					}
+				};
+			}}
+		>
+			<div class="space-y-5 p-4 sm:p-5">
+				{#if updateError}
+					<div
+						class="flex items-center gap-2.5 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+					>
+						<AlertTriangle size={15} class="shrink-0" />
+						{updateError}
 					</div>
-
-					<!-- Status -->
-					<fieldset>
-						<legend class="mb-1.5 block text-sm font-semibold text-foreground">Status</legend>
-						<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
-							{#each statusOptions as opt}
-								<label class="relative flex cursor-pointer flex-col rounded-lg border-2 p-3 transition-colors {project.status === opt.value ? 'border-primary bg-primary/5' : 'border-border bg-secondary/20 hover:border-border/80'}">
-									<input type="radio" name="status" value={opt.value} bind:group={project.status} class="sr-only" />
-									<div class="flex items-center gap-2">
-										<span class="h-2.5 w-2.5 rounded-full {opt.value === 'active' ? 'bg-green-500' : opt.value === 'maintenance' ? 'bg-amber-500' : 'bg-zinc-500'}"></span>
-										<span class="text-sm font-semibold text-foreground">{opt.label}</span>
-										{#if project.status === opt.value}
-											<CheckCircle size={14} class="ml-auto text-primary" />
-										{/if}
-									</div>
-									<p class="mt-1 text-xs text-muted-foreground">{opt.description}</p>
-								</label>
-							{/each}
-						</div>
-					</fieldset>
-
-					<!-- Divider -->
-					<div class="border-t border-border"></div>
-
-					<!-- Repo URL -->
-					<div>
-						<label for="s-repo" class="mb-1.5 flex items-center gap-2 text-sm font-semibold text-foreground">
-							<GitBranch size={14} class="text-muted-foreground" /> Repository URL
-						</label>
-						<input
-							id="s-repo"
-							name="repo_url"
-							type="url"
-							bind:value={project.repo_url}
-							class="w-full rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground focus:border-primary focus:outline-none"
-							placeholder="https://github.com/org/repo"
-						/>
+				{/if}
+				{#if updateSuccess}
+					<div
+						class="flex items-center gap-2.5 rounded-lg border border-success/40 bg-success/10 px-3 py-2.5 text-sm text-success"
+					>
+						<CheckCircle size={15} class="shrink-0" />
+						Project updated successfully
 					</div>
+				{/if}
 
+				<!-- Name -->
+				<div>
+					<label for="s-name" class={labelClass}>
+						Project name <span class="text-destructive">*</span>
+					</label>
+					<input
+						id="s-name"
+						name="name"
+						required
+						bind:value={project.name}
+						class={inputClass}
+						placeholder="My Project"
+					/>
+				</div>
+
+				<!-- Status -->
+				<fieldset>
+					<legend class={labelClass}>Status</legend>
+					<div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+						{#each statusOptions as opt (opt.value)}
+							<label
+								class="press relative flex cursor-pointer flex-col rounded-lg border p-3 transition-colors {project.status ===
+								opt.value
+									? 'border-ring bg-secondary/60'
+									: 'border-border bg-background hover:border-input'}"
+							>
+								<input
+									type="radio"
+									name="status"
+									value={opt.value}
+									bind:group={project.status}
+									class="sr-only"
+								/>
+								<div class="flex items-center gap-2">
+									<span class="h-2 w-2 shrink-0 rounded-full {opt.dot}"></span>
+									<span class="text-sm font-semibold text-foreground">{opt.label}</span>
+									{#if project.status === opt.value}
+										<CheckCircle size={14} class="ml-auto text-foreground" />
+									{/if}
+								</div>
+								<p class="mt-1 text-xs text-muted-foreground">{opt.description}</p>
+							</label>
+						{/each}
+					</div>
+				</fieldset>
+
+				<div class="border-t border-border/60"></div>
+
+				<!-- Repo URL -->
+				<div>
+					<label for="s-repo" class={labelClass}>
+						<GitBranch size={13} /> Repository URL
+					</label>
+					<input
+						id="s-repo"
+						name="repo_url"
+						type="url"
+						bind:value={project.repo_url}
+						class={inputClass}
+						placeholder="https://github.com/org/repo"
+					/>
+				</div>
+
+				<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<!-- Staging URL -->
 					<div>
-						<label for="s-staging" class="mb-1.5 flex items-center gap-2 text-sm font-semibold text-foreground">
-							<Globe size={14} class="text-muted-foreground" /> Staging URL
+						<label for="s-staging" class={labelClass}>
+							<Globe size={13} /> Staging URL
 						</label>
 						<input
 							id="s-staging"
 							name="staging_url"
 							type="url"
 							bind:value={project.staging_url}
-							class="w-full rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground focus:border-primary focus:outline-none"
+							class={inputClass}
 							placeholder="https://staging.example.com"
 						/>
 					</div>
 
 					<!-- Production URL -->
 					<div>
-						<label for="s-prod" class="mb-1.5 flex items-center gap-2 text-sm font-semibold text-foreground">
-							<Rocket size={14} class="text-muted-foreground" /> Production URL
+						<label for="s-prod" class={labelClass}>
+							<Rocket size={13} /> Production URL
 						</label>
 						<input
 							id="s-prod"
 							name="production_url"
 							type="url"
 							bind:value={project.production_url}
-							class="w-full rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground focus:border-primary focus:outline-none"
+							class={inputClass}
 							placeholder="https://example.com"
 						/>
 					</div>
 				</div>
+			</div>
 
-				<div class="flex items-center justify-between border-t border-border px-6 py-4">
-					<button
-						type="button"
-						onclick={resetEdit}
-						class="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
-					>
-						Reset changes
-					</button>
-					<button
-						type="submit"
-						disabled={updateSubmitting}
-						class="flex items-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
-					>
-						{#if updateSubmitting}
-							<Loader size={16} class="animate-spin" /> Saving...
-						{:else}
-							<Save size={16} /> Save Changes
-						{/if}
-					</button>
-				</div>
-			</form>
-		</div>
+			<div
+				class="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-3 sm:px-5"
+			>
+				<button
+					type="button"
+					onclick={resetEdit}
+					class="press rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+				>
+					Reset changes
+				</button>
+				<button
+					type="submit"
+					disabled={updateSubmitting}
+					class="press flex items-center gap-2 rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+				>
+					{#if updateSubmitting}
+						<Loader size={15} class="animate-spin" /> Saving…
+					{:else}
+						<Save size={15} /> Save changes
+					{/if}
+				</button>
+			</div>
+		</form>
 	</section>
 
-	<!-- ─── Project Info ─────────────────────────────── -->
-	<section class="mt-8">
-		<h2 class="mb-4 text-lg font-semibold text-foreground">Project Info</h2>
-		<div class="rounded-xl border border-border bg-card">
-			<div class="divide-y divide-border">
-				<div class="flex items-center justify-between px-6 py-4">
-					<span class="text-sm font-medium text-muted-foreground">Project ID</span>
-					<code class="rounded bg-secondary px-2 py-1 text-xs font-mono text-foreground">{data.project.id}</code>
-				</div>
-				<div class="flex items-center justify-between px-6 py-4">
-					<span class="text-sm font-medium text-muted-foreground">Created</span>
-					<span class="text-sm text-foreground">{new Date(data.project.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-				</div>
-				<div class="flex items-center justify-between px-6 py-4">
-					<span class="text-sm font-medium text-muted-foreground">Current Status</span>
-					<span class="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold {data.project.status === 'active' ? 'bg-green-950/40 text-green-400' : data.project.status === 'maintenance' ? 'bg-amber-950/40 text-amber-400' : 'bg-zinc-800 text-zinc-400'}">
-						<span class="h-1.5 w-1.5 rounded-full {data.project.status === 'active' ? 'bg-green-500' : data.project.status === 'maintenance' ? 'bg-amber-500' : 'bg-zinc-500'}"></span>
-						{data.project.status.charAt(0).toUpperCase() + data.project.status.slice(1)}
-					</span>
-				</div>
-				<div class="flex items-center justify-between px-6 py-4">
-					<span class="text-sm font-medium text-muted-foreground">View Activity</span>
+	<!-- ─── Project info ─────────────────────────────── -->
+	<section class="rise rounded-xl border border-border bg-card" style:--delay="40ms">
+		<div class="border-b border-border/60 px-4 py-3 sm:px-5">
+			<h2 class="text-sm font-semibold text-foreground">Project info</h2>
+		</div>
+		<dl class="divide-y divide-border/60">
+			<div class="row-hover flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+				<dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+					Project ID
+				</dt>
+				<dd
+					class="select-all truncate rounded bg-secondary px-2 py-0.5 font-mono text-xs tabular-nums text-foreground"
+				>
+					{data.project.id}
+				</dd>
+			</div>
+			<div class="row-hover flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+				<dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Created</dt>
+				<dd class="text-sm tabular-nums text-foreground">{createdLabel}</dd>
+			</div>
+			<div class="row-hover flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+				<dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+					Current status
+				</dt>
+				<dd><StatusBadge status={data.project.status} size="sm" /></dd>
+			</div>
+			<div class="row-hover flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5">
+				<dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Activity</dt>
+				<dd>
 					<a
 						href="/projects/{data.project.id}/activity"
-						class="flex items-center gap-1.5 text-sm text-primary hover:underline"
+						class="inline-flex items-center gap-1.5 text-sm font-medium text-foreground hover:underline"
 					>
 						<Activity size={14} /> Activity log
 					</a>
-				</div>
+				</dd>
 			</div>
-		</div>
+		</dl>
 	</section>
 
 	<!-- ─── Integrations ─────────────────────────────── -->
-	<section class="mt-8">
-		<h2 class="mb-4 text-lg font-semibold text-foreground">Integrations</h2>
-		<div class="rounded-xl border border-border bg-card">
-			<a
-				href="/projects/{data.project.id}/settings/github"
-				class="flex items-center justify-between px-6 py-4 transition-colors hover:bg-secondary/30"
-			>
-				<div class="flex items-center gap-3">
-					<Github size={20} class="text-foreground" />
-					<div>
-						<p class="text-sm font-semibold text-foreground">GitHub</p>
-						<p class="text-xs text-muted-foreground">Connect repo; sync branches, PRs, commits, and CI</p>
-					</div>
-				</div>
-				<ChevronRight size={16} class="text-muted-foreground" />
-			</a>
+	<section class="rise rounded-xl border border-border bg-card" style:--delay="80ms">
+		<div class="border-b border-border/60 px-4 py-3 sm:px-5">
+			<h2 class="text-sm font-semibold text-foreground">Integrations</h2>
 		</div>
-	</section>
-
-	<!-- ─── Danger Zone ──────────────────────────────── -->
-	<section class="mt-8">
-		<h2 class="mb-4 text-lg font-semibold text-red-400">Danger Zone</h2>
-		<div class="rounded-xl border-2 border-red-900/50 bg-red-950/10">
-			<div class="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
-				<div>
-					<h3 class="text-base font-semibold text-foreground">Delete this project</h3>
-					<p class="mt-1 text-sm text-muted-foreground">
-						Permanently deletes <strong class="text-foreground">{data.project.name}</strong> and all its data — specs, tasks, tests, incidents, reports, and activity. This action cannot be undone.
+		<a
+			href="/projects/{data.project.id}/settings/github"
+			class="row-hover flex items-center justify-between gap-3 px-4 py-3 sm:px-5"
+		>
+			<div class="flex min-w-0 items-center gap-3">
+				<Github size={18} class="shrink-0 text-foreground" />
+				<div class="min-w-0">
+					<p class="text-sm font-semibold text-foreground">GitHub</p>
+					<p class="truncate text-xs text-muted-foreground">
+						Connect repo; sync branches, PRs, commits, and CI
 					</p>
 				</div>
-				<button
-					type="button"
-					onclick={() => { deleteOpen = true; deleteConfirmInput = ''; deleteError = ''; }}
-					class="shrink-0 rounded-lg border border-red-800/60 bg-red-950/30 px-5 py-2.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-900/40 hover:text-red-300"
-				>
-					<span class="flex items-center gap-2"><Trash2 size={16} /> Delete Project</span>
-				</button>
 			</div>
+			<ChevronRight size={16} class="shrink-0 text-muted-foreground" />
+		</a>
+	</section>
+
+	<!-- ─── Danger zone ──────────────────────────────── -->
+	<section
+		class="rise rounded-xl border border-destructive/40 bg-destructive/5"
+		style:--delay="120ms"
+	>
+		<div class="border-b border-destructive/30 px-4 py-3 sm:px-5">
+			<h2 class="text-sm font-semibold text-destructive">Danger zone</h2>
+		</div>
+		<div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-start sm:justify-between sm:p-5">
+			<div class="min-w-0">
+				<h3 class="text-sm font-semibold text-foreground">Delete this project</h3>
+				<p class="mt-1 text-xs text-muted-foreground">
+					Permanently deletes <strong class="font-semibold text-foreground"
+						>{data.project.name}</strong
+					> and all its data — specs, tasks, tests, incidents, reports, and activity. This action cannot
+					be undone.
+				</p>
+			</div>
+			<button
+				type="button"
+				onclick={() => {
+					deleteOpen = true;
+					deleteConfirmInput = '';
+					deleteError = '';
+				}}
+				class="press flex shrink-0 items-center gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm font-semibold text-destructive transition-colors hover:bg-destructive/20"
+			>
+				<Trash2 size={15} /> Delete project
+			</button>
 		</div>
 	</section>
 </div>
 
-<!-- ─── Delete Confirm Modal ─────────────────────── -->
-{#if deleteOpen}
-	<!-- Backdrop -->
-	<div
-		class="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
-		role="dialog"
-		aria-modal="true"
-		aria-label="Delete project"
+<!-- ─── Delete confirm ───────────────────────────── -->
+<Modal bind:open={deleteOpen} title="Delete Project">
+	<form
+		method="POST"
+		action="?/delete"
+		use:enhance={() => {
+			deleteSubmitting = true;
+			deleteError = '';
+			return async ({ result }) => {
+				deleteSubmitting = false;
+				if (result.type === 'failure') {
+					deleteError = (result.data as any)?.error ?? 'Something went wrong';
+				}
+				// On success, SvelteKit will follow the redirect
+			};
+		}}
+		class="space-y-4"
 	>
-		<div class="w-full max-w-md rounded-2xl border border-red-900/60 bg-card shadow-2xl">
-			<!-- Header -->
-			<div class="border-b border-border px-6 py-5">
-				<div class="flex items-center gap-3">
-					<div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-950/50">
-						<Trash2 size={20} class="text-red-400" />
-					</div>
-					<div>
-						<h3 class="text-lg font-bold text-foreground">Delete Project</h3>
-						<p class="text-sm text-muted-foreground">This is permanent and cannot be reversed</p>
-					</div>
-				</div>
-			</div>
+		<input type="hidden" name="project_name" value={data.project.name} />
 
-			<!-- Body -->
-			<form
-				method="POST"
-				action="?/delete"
-				use:enhance={() => {
-					deleteSubmitting = true;
-					deleteError = '';
-					return async ({ result }) => {
-						deleteSubmitting = false;
-						if (result.type === 'failure') {
-							deleteError = (result.data as any)?.error ?? 'Something went wrong';
-						}
-						// On success, SvelteKit will follow the redirect
-					};
-				}}
-			>
-				<input type="hidden" name="project_name" value={data.project.name} />
-
-				<div class="p-6 space-y-4">
-					<div class="rounded-lg border border-amber-900/40 bg-amber-950/20 px-4 py-3">
-						<p class="text-sm text-amber-300">
-							<strong>Warning:</strong> All specs, tasks, tests, incidents, reports, GitHub-linked sync data, environments, and activity will be permanently deleted.
-						</p>
-					</div>
-
-					<div>
-						<label for="delete-confirm" class="mb-2 block text-sm font-medium text-foreground">
-							Type <strong class="select-all font-mono text-red-400">{data.project.name}</strong> to confirm
-						</label>
-						<input
-							id="delete-confirm"
-							name="confirm"
-							autocomplete="off"
-							bind:value={deleteConfirmInput}
-							class="w-full rounded-lg border border-input bg-background px-4 py-3 text-base text-foreground focus:border-red-600 focus:outline-none"
-							placeholder="Type project name here..."
-						/>
-					</div>
-
-					{#if deleteError}
-						<div class="flex items-center gap-2 rounded-lg bg-red-900/30 px-4 py-3 text-sm text-red-300">
-							<AlertTriangle size={14} class="shrink-0" /> {deleteError}
-						</div>
-					{/if}
-				</div>
-
-				<div class="flex gap-3 border-t border-border px-6 py-4">
-					<button
-						type="submit"
-						disabled={!confirmMatch || deleteSubmitting}
-						class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-red-700 py-3 text-sm font-bold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-40"
-					>
-						{#if deleteSubmitting}
-							<Loader size={16} class="animate-spin" /> Deleting...
-						{:else}
-							<Trash2 size={16} /> Delete Project Forever
-						{/if}
-					</button>
-					<button
-						type="button"
-						onclick={() => (deleteOpen = false)}
-						class="rounded-lg bg-secondary px-5 py-3 text-sm font-medium text-foreground hover:bg-accent"
-					>
-						Cancel
-					</button>
-				</div>
-			</form>
+		<div class="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
+			<AlertTriangle size={20} class="mt-0.5 shrink-0 text-warning" />
+			<p class="text-sm text-muted-foreground">
+				<strong class="font-semibold text-foreground">This cannot be reversed.</strong> All specs,
+				tasks, tests, incidents, reports, GitHub-linked sync data, environments, and activity will be
+				permanently deleted.
+			</p>
 		</div>
-	</div>
-{/if}
+
+		<div>
+			<label
+				for="delete-confirm"
+				class="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+			>
+				Type <strong class="select-all font-mono normal-case text-destructive"
+					>{data.project.name}</strong
+				> to confirm
+			</label>
+			<input
+				id="delete-confirm"
+				name="confirm"
+				autocomplete="off"
+				bind:value={deleteConfirmInput}
+				class="w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-destructive focus:outline-none"
+				placeholder="Type project name here…"
+			/>
+		</div>
+
+		{#if deleteError}
+			<div
+				class="flex items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive"
+			>
+				<AlertTriangle size={14} class="shrink-0" /> {deleteError}
+			</div>
+		{/if}
+
+		<div class="flex justify-end gap-3 pt-2">
+			<button
+				type="button"
+				onclick={() => (deleteOpen = false)}
+				class="press rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+			>
+				Cancel
+			</button>
+			<button
+				type="submit"
+				disabled={!confirmMatch || deleteSubmitting}
+				class="press flex items-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-semibold text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:cursor-not-allowed disabled:opacity-40"
+			>
+				{#if deleteSubmitting}
+					<Loader size={15} class="animate-spin" /> Deleting…
+				{:else}
+					<Trash2 size={15} /> Delete project forever
+				{/if}
+			</button>
+		</div>
+	</form>
+</Modal>

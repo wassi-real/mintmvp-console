@@ -7,9 +7,9 @@
 	let { children } = $props();
 </script>
 
-<div class="relative h-screen overflow-hidden bg-background">
+<div class="relative h-svh overflow-hidden bg-background">
 	<TopNav />
-	<main class="mt-16 flex h-[calc(100vh-4rem)] flex-col overflow-hidden">
+	<main class="mt-16 flex h-[calc(100svh-4rem)] flex-col overflow-hidden">
 		{#key $page.url.pathname}
 			<div
 				class="flex min-h-0 flex-1 flex-col motion-safe:will-change-opacity"
