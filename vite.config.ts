@@ -4,10 +4,20 @@ import adapter from '@sveltejs/adapter-vercel';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
+/** Report markdown uses these packages; Vercel route bundles must include them. */
+const MARKDOWN_SSR = [
+	'marked',
+	'htmlparser2',
+	'domelementtype',
+	'domhandler',
+	'domutils',
+	'dom-serializer',
+	'entities'
+];
+
 export default defineConfig({
 	ssr: {
-		// Vercel serverless isolates each route; keep markdown libs in the bundle instead of runtime node_modules.
-		noExternal: ['marked', 'sanitize-html']
+		noExternal: MARKDOWN_SSR
 	},
 	plugins: [
 		enhancedImages(),
