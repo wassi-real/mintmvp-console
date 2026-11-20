@@ -2,6 +2,7 @@
 	import Bell from '@lucide/svelte/icons/bell';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
+	import CreditCard from '@lucide/svelte/icons/credit-card';
 	import FolderKanban from '@lucide/svelte/icons/folder-kanban';
 	import House from '@lucide/svelte/icons/house';
 	import LogOut from '@lucide/svelte/icons/log-out';
@@ -64,6 +65,12 @@
 			label: 'People',
 			icon: Users,
 			current: path.startsWith('/dashboard/members')
+		},
+		{
+			href: '/dashboard/billing',
+			label: 'Premium',
+			icon: CreditCard,
+			current: path.startsWith('/dashboard/billing')
 		},
 		{
 			href: '/dashboard/settings',

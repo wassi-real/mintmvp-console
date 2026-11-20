@@ -13,6 +13,7 @@ export function dbMessage(error: { code?: string; message: string }, noun: strin
 	if (error.code === '23503') return `That ${noun} refers to something that no longer exists.`;
 	if (error.code === '23514') return `One of the values is not allowed for a ${noun}.`;
 	if (error.code === '42501') return VIEW_ONLY;
+	if (error.code === 'P0001' || /limit/i.test(error.message)) return error.message;
 	console.error(`database error (${noun}):`, error.code, error.message);
 	return `Could not save the ${noun}. Please try again.`;
 }

@@ -21,6 +21,7 @@
 	import Workflow from '@lucide/svelte/icons/workflow';
 	import { page } from '$app/state';
 	import Badge from '#lib/components/Badge.svelte';
+	import MintAi from '#lib/components/MintAi.svelte';
 	import { projectStatus } from '#lib/constants.ts';
 	import type { LayoutProps } from './$types';
 
@@ -183,3 +184,4 @@
 		</div>
 	{/key}
 </main>
+<MintAi projectId={data.project.id} projectName={data.project.name} />
