@@ -15,7 +15,7 @@
 
 	const report = $derived(data.report);
 	const fields = $derived(reportFields(data.folders));
-	const words = $derived(report.content.trim().split(/\s+/).filter(Boolean).length);
+	const words = $derived((report.content ?? '').trim().split(/\s+/).filter(Boolean).length);
 
 	let editing = $state(false);
 	let deleting = $state(false);

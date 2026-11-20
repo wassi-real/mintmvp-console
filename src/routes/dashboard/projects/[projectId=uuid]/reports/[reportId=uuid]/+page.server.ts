@@ -26,12 +26,24 @@ export const load: PageServerLoad = async (event) => {
 			.maybeSingle(),
 		folderOptions(context)
 	]);
+	if (report.error) {
+		console.error('report load failed:', report.error.message);
+		error(500, 'Could not load this report. Please try again.');
+	}
 	const row = report.data;
 	if (!row) error(404, 'Report not found.');
 
+	let html: string;
+	try {
+		html = renderMarkdown(row.content);
+	} catch (cause) {
+		console.error('report markdown failed:', cause);
+		error(500, 'Could not render this report. Please try again.');
+	}
+
 	return {
 		report: row,
-		html: renderMarkdown(row.content),
+		html,
 		folders,
 		folderName: folders.find((folder) => folder.value === row.folder_id)?.label ?? ''
 	};

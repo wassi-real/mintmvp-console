@@ -16,8 +16,8 @@ const ALLOWED_TAGS = [
  * Turns Markdown written by people or agents into safe HTML. Everything that could run code
  * (scripts, event handlers, javascript: links, styles) is removed.
  */
-export function renderMarkdown(source: string): string {
-	const html = marked.parse(source, { async: false, gfm: true, breaks: false });
+export function renderMarkdown(source: string | null | undefined): string {
+	const html = marked.parse(source ?? '', { async: false, gfm: true, breaks: false });
 	return sanitizeHtml(html, {
 		allowedTags: ALLOWED_TAGS,
 		allowedAttributes: {

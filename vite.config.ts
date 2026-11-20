@@ -5,6 +5,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	ssr: {
+		// Vercel serverless isolates each route; keep markdown libs in the bundle instead of runtime node_modules.
+		noExternal: ['marked', 'sanitize-html']
+	},
 	plugins: [
 		enhancedImages(),
 		tailwindcss(),
