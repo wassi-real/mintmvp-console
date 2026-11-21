@@ -142,17 +142,17 @@
 			{#snippet children({ pending, errors })}
 				<div class="grid gap-5">
 					<div>
-						<label class="label" for="invite-email">Their email address</label>
+						<label class="label" for="invite-who">Their email or username</label>
 						<input
-							id="invite-email"
-							name="email"
-							type="email"
+							id="invite-who"
+							name="who"
 							class="input"
 							required
 							autocomplete="off"
-							aria-invalid={errors.email ? 'true' : undefined}
+							placeholder="name@email.com or username"
+							aria-invalid={errors.who ? 'true' : undefined}
 						/>
-						{#if errors.email}<p class="field-error">{errors.email}</p>{/if}
+						{#if errors.who}<p class="field-error">{errors.who}</p>{/if}
 					</div>
 					<fieldset>
 						<legend class="label">Role</legend>
@@ -167,14 +167,14 @@
 						{#if errors.role}<p class="field-error">{errors.role}</p>{/if}
 					</fieldset>
 					<p class="notice">
-						No email is sent yet. Ask them to sign up or log in with this email address: the
-						invitation will be waiting for them. It stays valid for 14 days.
+						They need an account already. We email them a link to join, and it also shows in their
+						notifications. The invitation stays valid for 14 days.
 					</p>
 				</div>
 				<div class="mt-8 flex flex-wrap justify-end gap-3">
 					<button type="button" class="btn" onclick={() => (inviting = false)}>Cancel</button>
 					<button type="submit" class="btn btn-primary" disabled={pending}>
-						{pending ? 'Creating…' : 'Create invitation'}
+						{pending ? 'Sending…' : 'Send invitation'}
 					</button>
 				</div>
 			{/snippet}

@@ -9,7 +9,7 @@ export const load: PageServerLoad = async (event) => {
 		.from('notifications')
 		.select('id, kind, title, body, link, created_at, read_at')
 		.eq('user_id', profile.id)
-		.eq('organization_id', profile.organization_id)
+		.or(`organization_id.eq.${profile.organization_id},kind.eq.workspace_invite`)
 		.order('created_at', { ascending: false })
 		.limit(200);
 	return { notifications: data ?? [] };

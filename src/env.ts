@@ -55,5 +55,14 @@ export const variables = defineEnvVars({
 	STRIPE_WEBHOOK_SECRET: {
 		description: 'Optional until billing is used. Stripe webhook signing secret. Server only.',
 		schema: optional
+	},
+	RESEND_API_KEY: {
+		description: 'Optional until email is used. Resend API key. Server only.',
+		schema: optional
+	},
+	RESEND_FROM: {
+		description:
+			'Optional until email is used. Verified sender, for example MintMVP Console <hello@mintmvp.com>. Server only.',
+		schema: optional
 	}
 });

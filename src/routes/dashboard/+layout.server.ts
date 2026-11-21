@@ -17,7 +17,7 @@ export const load: LayoutServerLoad = async (event) => {
 			.from('notifications')
 			.select('id', { count: 'exact', head: true })
 			.eq('user_id', profile.id)
-			.eq('organization_id', organizationId)
+			.or(`organization_id.eq.${organizationId},kind.eq.workspace_invite`)
 			.is('read_at', null)
 	]);
 

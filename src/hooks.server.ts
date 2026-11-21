@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import { sequence, type Handle } from '@sveltejs/kit/hooks';
 import { createRequestClient, getServiceClient, hasAuthCookie } from '#lib/server/supabase.ts';
+import { withOrigin } from '#lib/server/origin.ts';
 import { safeNext } from '#lib/server/redirects.ts';
 
 const supabase: Handle = async ({ event, resolve }) => {
@@ -85,7 +86,7 @@ const guard: Handle = async ({ event, resolve }) => {
 		if (inOnboarding && ready) redirect(303, '/dashboard');
 	}
 
-	const response = await resolve(event);
+	const response = await withOrigin(event.url.origin, () => resolve(event));
 	response.headers.set('x-frame-options', 'DENY');
 	response.headers.set('x-content-type-options', 'nosniff');
 	response.headers.set('referrer-policy', 'strict-origin-when-cross-origin');
