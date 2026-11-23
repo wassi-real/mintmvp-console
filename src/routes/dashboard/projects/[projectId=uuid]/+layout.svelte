@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Activity from '@lucide/svelte/icons/activity';
+	import BookOpen from '@lucide/svelte/icons/book-open';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
 	import CirclePlay from '@lucide/svelte/icons/circle-play';
 	import FileText from '@lucide/svelte/icons/file-text';
@@ -67,7 +68,8 @@
 				title: 'Knowledge',
 				links: [
 					{ href: `${base}/reports`, label: 'Reports', icon: NotebookText },
-					{ href: `${base}/activity`, label: 'Activity', icon: Activity }
+					{ href: `${base}/activity`, label: 'Activity', icon: Activity },
+					{ href: '/docs', label: 'Docs', icon: BookOpen }
 				]
 			},
 			{

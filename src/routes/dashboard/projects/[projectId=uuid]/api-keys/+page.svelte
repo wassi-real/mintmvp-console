@@ -48,12 +48,16 @@
 
 <PageHeader
 	title="API keys"
-	description="Keys let your tools and agents add reports and read this project. A key is shown in full only once, when you create it."
+	description="A key can read and change this project only, including MintAI. It is shown in full once, when you create it."
 >
 	<button type="button" class="btn btn-primary" onclick={() => (creating = true)}>
 		<Plus size={20} /> New API key
 	</button>
 </PageHeader>
+
+<p class="-mt-4 mb-8 text-muted">
+	The call shapes, fields and MintAI endpoint are in the <a class="link" href="/docs">API docs</a>.
+</p>
 
 {#if revealed}
 	<section class="notice notice-ok mb-8">

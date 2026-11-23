@@ -132,7 +132,9 @@
 				<a href="#pricing">Pricing</a>
 				<a href="#faq">FAQ</a>
 				<a href="#contact">Contact</a>
+				<a href="/docs">Docs</a>
 			</nav>
+			<a href="/docs" class="nav-docs">Docs</a>
 			<a href={startHref} class="btn btn-primary btn-sm">{startLabel}</a>
 		</div>
 	</header>
@@ -362,12 +364,21 @@
 		font-weight: 600;
 		text-decoration: none;
 	}
-	.nav nav a:hover {
+	.nav nav a:hover,
+	.nav-docs:hover {
 		background: var(--surface-2);
 		color: var(--fg);
 	}
-	.nav > .btn {
+	.nav-docs {
 		margin-left: auto;
+		padding: 0.45rem 0.8rem;
+		border-radius: var(--r-sm);
+		color: var(--fg-muted);
+		font-weight: 600;
+		text-decoration: none;
+	}
+	.nav > .btn {
+		margin-left: 0.35rem;
 	}
 
 	.hero {
@@ -731,7 +742,7 @@
 			width: min(72rem, calc(100% - 3.5rem));
 		}
 		.nav > .btn {
-			margin-left: 0;
+			margin-left: 0.35rem;
 		}
 		.hero {
 			grid-template-columns: 1.05fr 0.95fr;
@@ -755,6 +766,9 @@
 	}
 
 	@media (min-width: 980px) {
+		.nav-docs {
+			display: none;
+		}
 		.nav nav {
 			display: flex;
 		}

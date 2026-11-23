@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Bell from '@lucide/svelte/icons/bell';
+	import BookOpen from '@lucide/svelte/icons/book-open';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
 	import CreditCard from '@lucide/svelte/icons/credit-card';
@@ -71,6 +72,12 @@
 			label: 'Premium',
 			icon: CreditCard,
 			current: path.startsWith('/dashboard/billing')
+		},
+		{
+			href: '/docs',
+			label: 'Docs',
+			icon: BookOpen,
+			current: path.startsWith('/docs')
 		},
 		{
 			href: '/dashboard/settings',
