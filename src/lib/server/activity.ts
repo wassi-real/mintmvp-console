@@ -76,6 +76,66 @@ export async function notify(context: WorkspaceContext, input: NotificationInput
 	return sent;
 }
 
+/**
+ * Tells the owners and developers of a project that something needs them, in the app and by
+ * email. Works without a signed-in user, so agents using an API key can raise it too.
+ */
+export async function notifyStaff(
+	project: { id: string; organization_id: string },
+	input: { kind: string; title: string; body?: string; link?: string; exceptUserId?: string | null }
+): Promise<void> {
+	const db = getServiceClient();
+	const { data: members, error: memberError } = await db
+		.from('organization_members')
+		.select('user_id')
+		.eq('organization_id', project.organization_id)
+		.in('role', ['owner', 'developer']);
+	if (memberError) {
+		console.error('staff lookup failed:', memberError.message);
+		return;
+	}
+	const ids = [...new Set((members ?? []).map((member) => member.user_id))].filter(
+		(id) => id !== input.exceptUserId
+	);
+	if (ids.length === 0) return;
+
+	const { error } = await db.from('notifications').insert(
+		ids.map((userId) => ({
+			user_id: userId,
+			organization_id: project.organization_id,
+			project_id: project.id,
+			kind: input.kind,
+			title: input.title.slice(0, 300),
+			body: (input.body ?? '').slice(0, 1000),
+			link: input.link ?? '',
+			created_by: input.exceptUserId ?? null
+		}))
+	);
+	if (error) {
+		console.error('staff notification insert failed:', error.message);
+		return;
+	}
+
+	const { data: people } = await db.from('users').select('email').in('id', ids);
+	const origin = currentOrigin();
+	const href = input.link?.startsWith('/') && origin ? `${origin}${input.link}` : '';
+	await Promise.all(
+		(people ?? [])
+			.map((person) => person.email?.trim())
+			.filter((email): email is string => Boolean(email))
+			.map((email) =>
+				sendMail({
+					to: email,
+					subject: input.title.slice(0, 200),
+					title: input.title,
+					body: input.body,
+					href,
+					action: href ? 'Open in Mint' : undefined
+				})
+			)
+	);
+}
+
 /** Notifies several workspace members at once (never the person acting). */
 export async function notifyMany(
 	context: WorkspaceContext,

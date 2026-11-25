@@ -1,74 +1,159 @@
 import { createHash } from 'node:crypto';
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { ANTHROPIC_API_KEY } from '$app/env/private';
 import type { Row } from '#lib/database.types.ts';
 import {
 	API_RESOURCES,
 	resourceBySlug,
-	SLICE_FIELDS,
 	type ApiField,
 	type ApiResource
 } from '#lib/api-reference.ts';
-import { allowance, consumeAiRequest, refundAiRequest } from './billing.ts';
-import type { Profile, ProjectContext } from './context.ts';
+import { planOf, type Plan } from '#lib/plans.ts';
+import { planFor } from './billing.ts';
 import { untyped } from './crud.ts';
-import { runMintAi, type ChatTurn } from './mintai.ts';
 import { getServiceClient } from './supabase.ts';
 import { isUuid } from './validate.ts';
+import { cleanName, type Actor, type WorkScope } from './work.ts';
+
+const RATE_HEADERS = [
+	'x-ratelimit-limit',
+	'x-ratelimit-remaining',
+	'x-ratelimit-reset',
+	'x-monthly-write-limit',
+	'x-monthly-writes-remaining',
+	'retry-after'
+];
 
 const CORS = {
 	'access-control-allow-origin': '*',
-	'access-control-allow-headers': 'authorization, content-type, x-api-key',
+	'access-control-allow-headers': 'authorization, content-type, x-api-key, x-agent-name',
 	'access-control-allow-methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+	'access-control-expose-headers': RATE_HEADERS.join(', '),
 	'access-control-max-age': '86400'
 };
 
 const BINDINGS: Record<string, { table: string; order: string; listSelect?: string }> = {
 	tasks: { table: 'tasks', order: 'created_at' },
-	milestones: { table: 'milestones', order: 'created_at' },
-	specs: { table: 'specs', order: 'created_at' },
 	reports: {
 		table: 'reports',
 		order: 'created_at',
 		listSelect: 'id, project_id, folder_id, title, created_by, created_at, updated_at'
 	},
 	'report-folders': { table: 'report_folders', order: 'sort_order' },
-	tests: { table: 'tests', order: 'id' },
-	incidents: { table: 'incidents', order: 'created_at' },
-	deployments: { table: 'deployments', order: 'created_at' },
-	environments: { table: 'project_environments', order: 'id' },
-	payments: { table: 'payments', order: 'paid_at' },
-	expenses: { table: 'expenses', order: 'spent_at' },
 	'monitoring-targets': { table: 'monitoring_targets', order: 'sort_order' },
-	activity: { table: 'activity_log', order: 'created_at' },
-	'github-commits': { table: 'github_commits', order: 'committed_at' },
-	'github-pull-requests': { table: 'github_pull_requests', order: 'created_at' },
-	'github-branches': { table: 'github_branches', order: 'updated_at' },
-	'github-builds': { table: 'github_ci_runs', order: 'created_at' },
-	'github-deployments': { table: 'github_deployments', order: 'created_at' }
+	activity: { table: 'activity_log', order: 'created_at' }
 };
 
 export interface ApiContext {
 	keyId: string;
 	keyName: string;
+	/** The agent's name: the X-Agent-Name header, or the key name. Claims belong to this name. */
 	actor: string;
 	premium: boolean;
+	plan: Plan;
 	ownerId: string;
 	project: Row<'projects'>;
-	profile: Profile;
-	mint: ProjectContext;
+	agent: Actor;
+	work: WorkScope;
 }
 
 export function apiOptions(): Response {
 	return new Response(null, { status: 204, headers: CORS });
 }
 
-function reply(body: unknown, status = 200): Response {
-	return json(body, { status, headers: CORS });
+export function reply(body: unknown, status = 200, headers: Record<string, string> = {}): Response {
+	return json(body, { status, headers: { ...CORS, ...headers } });
 }
 
-function fail(status: number, error: string): Response {
-	return reply({ error }, status);
+export function fail(status: number, error: string, headers: Record<string, string> = {}): Response {
+	return reply({ error }, status, headers);
+}
+
+// ─── Rate limits ─────────────────────────────────────────────────────────────
+
+const fallbackWindows = new Map<string, { window: number; hits: number }>();
+
+function monthLabel(date: Date): string {
+	return date.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+/**
+ * Counts this request against the key's per-minute limit and, for writes, the project's monthly
+ * limit. Returns a 429 response when a limit is reached.
+ */
+async function meter(
+	event: RequestEvent,
+	keyId: string,
+	projectId: string,
+	plan: Plan,
+	premium: boolean
+): Promise<Response | null> {
+	const write = !['GET', 'HEAD', 'OPTIONS'].includes(event.request.method);
+	const now = Date.now();
+	const minuteReset = (Math.floor(now / 60_000) + 1) * 60;
+	const today = new Date(now);
+	const monthReset = Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 1) / 1000;
+
+	let allowed = true;
+	let reason: string | null = null;
+	let minuteHits = 1;
+	let monthWrites: number | null = null;
+
+	const { data, error } = await untyped({ supabase: getServiceClient() }).rpc('api_hit', {
+		p_key: keyId,
+		p_project: projectId,
+		p_write: write,
+		p_minute_limit: plan.apiPerMinute,
+		p_month_limit: plan.apiWritesPerMonth
+	});
+	const row = (Array.isArray(data) ? data[0] : data) as
+		| { allowed: boolean; minute_hits: number; month_writes: number; reason: string | null }
+		| null
+		| undefined;
+
+	if (error || !row) {
+		if (error && error.code !== 'PGRST202') console.error('api rate limit failed:', error.message);
+		const windowId = Math.floor(now / 60_000);
+		const entry = fallbackWindows.get(keyId);
+		minuteHits = entry && entry.window === windowId ? entry.hits + 1 : 1;
+		fallbackWindows.set(keyId, { window: windowId, hits: minuteHits });
+		allowed = minuteHits <= plan.apiPerMinute;
+		reason = allowed ? null : 'minute';
+	} else {
+		allowed = row.allowed;
+		reason = row.reason;
+		minuteHits = row.minute_hits;
+		monthWrites = row.month_writes;
+	}
+
+	const headers: Record<string, string> = {
+		'x-ratelimit-limit': String(plan.apiPerMinute),
+		'x-ratelimit-remaining': String(Math.max(plan.apiPerMinute - minuteHits, 0)),
+		'x-ratelimit-reset': String(minuteReset),
+		'x-monthly-write-limit': String(plan.apiWritesPerMonth)
+	};
+	if (monthWrites !== null) {
+		headers['x-monthly-writes-remaining'] = String(Math.max(plan.apiWritesPerMonth - monthWrites, 0));
+	}
+	event.locals.apiHeaders = headers;
+	if (allowed) return null;
+
+	if (reason === 'month') {
+		const wait = Math.max(1, Math.ceil(monthReset - now / 1000));
+		const upgrade = premium
+			? 'It resets on the 1st of next month.'
+			: `Mint ($5 a month) raises it to ${planOf(true).apiWritesPerMonth.toLocaleString('en-US')}.`;
+		return fail(
+			429,
+			`This project has used its ${plan.apiWritesPerMonth.toLocaleString('en-US')} API writes for ${monthLabel(today)}. Reads still work. ${upgrade}`,
+			{ ...headers, 'retry-after': String(wait) }
+		);
+	}
+	const wait = Math.max(1, Math.ceil(minuteReset - now / 1000));
+	return fail(
+		429,
+		`Too many requests. This key can make ${plan.apiPerMinute} requests a minute on the ${plan.name} plan. Try again in ${wait} seconds.`,
+		{ ...headers, 'retry-after': String(wait) }
+	);
 }
 
 function from(table: string) {
@@ -90,53 +175,32 @@ export async function authenticate(event: RequestEvent): Promise<ApiContext | Re
 	const keyHash = createHash('sha256').update(token).digest('hex');
 	const { data: key, error: keyError } = await getServiceClient()
 		.from('api_keys')
-		.select('id, name, project_id')
+		.select('id, name, project_id, project:projects(*)')
 		.eq('key_hash', keyHash)
 		.maybeSingle();
 	if (keyError) {
 		console.error('api key lookup failed:', keyError.message);
 		return fail(500, 'Could not check that API key.');
 	}
-	if (!key) return fail(401, 'That API key is not valid. It may have been revoked.');
+	const project = key?.project as Row<'projects'> | null | undefined;
+	if (!key || !project) return fail(401, 'That API key is not valid. It may have been revoked.');
 
-	const { data: project, error: projectError } = await getServiceClient()
-		.from('projects')
-		.select('*')
-		.eq('id', key.project_id)
-		.maybeSingle();
-	if (projectError || !project) return fail(401, 'That API key is not valid. It may have been revoked.');
-
-	const { data: ownerMember } = await getServiceClient()
+	const { data: owner } = await getServiceClient()
 		.from('organization_members')
 		.select('user_id')
 		.eq('organization_id', project.organization_id)
 		.eq('role', 'owner')
 		.limit(1)
 		.maybeSingle();
-	if (!ownerMember) return fail(500, 'This workspace has no owner, so the API cannot run.');
-
-	const { data: owner } = await getServiceClient()
-		.from('users')
-		.select('*')
-		.eq('id', ownerMember.user_id)
-		.maybeSingle();
 	if (!owner) return fail(500, 'This workspace has no owner, so the API cannot run.');
 
-	const plan = await allowance(getServiceClient(), owner.id);
-	const actor = `API · ${key.name}`;
-	const profile: Profile = {
-		...owner,
-		organization_id: project.organization_id,
-		full_name: actor,
-		role: 'owner'
-	};
-	const mint: ProjectContext = {
-		supabase: getServiceClient(),
-		profile,
-		canEdit: true,
-		isOwner: true,
-		project
-	};
+	const { premium } = await planFor(getServiceClient(), owner.user_id);
+	const plan = planOf(premium);
+	const limited = await meter(event, key.id, project.id, plan, premium);
+	if (limited) return limited;
+
+	const named = cleanName(event.request.headers.get('x-agent-name') ?? '');
+	const actor = named || cleanName(key.name) || 'Agent';
 
 	void getServiceClient()
 		.from('api_keys')
@@ -150,11 +214,16 @@ export async function authenticate(event: RequestEvent): Promise<ApiContext | Re
 		keyId: key.id,
 		keyName: key.name,
 		actor,
-		premium: plan.premium,
-		ownerId: owner.id,
+		premium,
+		plan,
+		ownerId: owner.user_id,
 		project,
-		profile,
-		mint
+		agent: { name: actor, userId: null, via: 'api', person: false },
+		work: {
+			db: getServiceClient(),
+			project: { id: project.id, organization_id: project.organization_id, name: project.name },
+			workPerMonth: plan.workPerMonth
+		}
 	};
 }
 
@@ -166,7 +235,7 @@ function dbMessage(error: { message: string; code?: string }): string {
 	return 'Could not save that change.';
 }
 
-async function readJson(request: Request): Promise<{ value: Record<string, unknown> } | { error: string }> {
+export async function readJson(request: Request): Promise<{ value: Record<string, unknown> } | { error: string }> {
 	const text = await request.text();
 	if (text.length > 500_000) return { error: 'The request body is too large.' };
 	if (!text.trim()) return { value: {} };
@@ -267,7 +336,7 @@ function parseField(field: ApiField, raw: unknown): { value: unknown } | { error
 	return { value: text };
 }
 
-function pageOf(url: URL): { limit: number; offset: number } | { error: string } {
+export function pageOf(url: URL): { limit: number; offset: number } | { error: string } {
 	const limitRaw = url.searchParams.get('limit');
 	const offsetRaw = url.searchParams.get('offset');
 	const limit = limitRaw == null ? 50 : Number(limitRaw);
@@ -304,7 +373,7 @@ async function assertMonthly(ctx: ApiContext, resource: ApiResource): Promise<st
 		return 'Could not check the monthly limit. Please try again.';
 	}
 	if ((count ?? 0) >= cap) {
-		return `Monthly limit reached for ${resource.title.toLowerCase()} (${cap} per project). Premium is $5 a month.`;
+		return `Monthly limit reached for ${resource.title.toLowerCase()} (${cap} per project). Mint ($5 a month) raises it.`;
 	}
 	return null;
 }
@@ -328,15 +397,32 @@ function projectPayload(project: Row<'projects'>) {
 export async function handleIndex(event: RequestEvent): Promise<Response> {
 	const ctx = await authenticate(event);
 	if (ctx instanceof Response) return ctx;
-	const plan = await allowance(getServiceClient(), ctx.ownerId);
+	const period = new Date().toISOString().slice(0, 7);
+	const { data: usage } = await from('api_usage_monthly')
+		.select('writes, reads')
+		.eq('project_id', ctx.project.id)
+		.eq('period', period)
+		.maybeSingle();
+	const writes = Number(usage?.writes ?? 0);
 	return reply({
 		project: projectPayload(ctx.project),
 		key: { id: ctx.keyId, name: ctx.keyName },
-		mintai: {
-			configured: Boolean(ANTHROPIC_API_KEY),
-			premium: plan.premium,
-			used: plan.used,
-			remaining: plan.remaining
+		agent: ctx.actor,
+		plan: {
+			name: ctx.plan.name,
+			requests_per_minute: ctx.plan.apiPerMinute,
+			writes_per_month: ctx.plan.apiWritesPerMonth,
+			work_items_per_month: ctx.plan.workPerMonth
+		},
+		usage: {
+			period,
+			writes,
+			reads: Number(usage?.reads ?? 0),
+			writes_remaining: Math.max(ctx.plan.apiWritesPerMonth - writes, 0)
+		},
+		start: {
+			board: '/api/v1/board',
+			work: '/api/v1/work'
 		},
 		resources: API_RESOURCES.map((resource) => ({
 			name: resource.slug,
@@ -501,15 +587,6 @@ async function taskInProject(ctx: ApiContext, taskId: string) {
 	return Boolean(data);
 }
 
-async function milestoneInProject(ctx: ApiContext, milestoneId: string) {
-	const { data } = await from('milestones')
-		.select('id')
-		.eq('id', milestoneId)
-		.eq('project_id', ctx.project.id)
-		.maybeSingle();
-	return Boolean(data);
-}
-
 export async function handleComments(event: RequestEvent): Promise<Response> {
 	const taskId = event.params.id ?? '';
 	if (!isUuid(taskId)) return fail(400, 'The task id must be a UUID.');
@@ -564,179 +641,4 @@ export async function handleComment(event: RequestEvent): Promise<Response> {
 	if (!data) return fail(404, 'That comment is not on this task.');
 	await recordActivity(ctx, 'API deleted a task comment', { task_id: taskId });
 	return reply({ ok: true });
-}
-
-export async function handleSlices(event: RequestEvent): Promise<Response> {
-	const milestoneId = event.params.id ?? '';
-	if (!isUuid(milestoneId)) return fail(400, 'The milestone id must be a UUID.');
-	const ctx = await authenticate(event);
-	if (ctx instanceof Response) return ctx;
-	if (!(await milestoneInProject(ctx, milestoneId))) return fail(404, 'That milestone is not in this project.');
-
-	if (event.request.method === 'GET') {
-		const { data, error } = await from('milestone_slices').select('*').eq('milestone_id', milestoneId).order('sort_order');
-		if (error) return fail(500, 'Could not load steps.');
-		return reply({ data: data ?? [] });
-	}
-	if (event.request.method !== 'POST') return fail(405, 'Use GET or POST on steps.');
-	const body = await readJson(event.request);
-	if ('error' in body) return fail(400, body.error);
-	const picked = pickFields(body.value, SLICE_FIELDS, 'create');
-	if ('error' in picked) return fail(400, picked.error);
-	const { data, error } = await from('milestone_slices')
-		.insert({ ...picked.value, milestone_id: milestoneId })
-		.select('*')
-		.single();
-	if (error || !data) return fail(400, error ? dbMessage(error) : 'Could not add the step.');
-	await recordActivity(ctx, 'API added a milestone step', { milestone_id: milestoneId });
-	return reply({ data }, 201);
-}
-
-export async function handleSlice(event: RequestEvent): Promise<Response> {
-	const milestoneId = event.params.id ?? '';
-	const sliceId = event.params.sliceId ?? '';
-	if (!isUuid(milestoneId) || !isUuid(sliceId)) return fail(400, 'Ids must be UUIDs.');
-	const ctx = await authenticate(event);
-	if (ctx instanceof Response) return ctx;
-	if (!(await milestoneInProject(ctx, milestoneId))) return fail(404, 'That milestone is not in this project.');
-
-	if (event.request.method === 'DELETE') {
-		const { data, error } = await from('milestone_slices')
-			.delete()
-			.eq('id', sliceId)
-			.eq('milestone_id', milestoneId)
-			.select('id')
-			.maybeSingle();
-		if (error) return fail(400, dbMessage(error));
-		if (!data) return fail(404, 'That step is not on this milestone.');
-		await recordActivity(ctx, 'API deleted a milestone step', { milestone_id: milestoneId });
-		return reply({ ok: true });
-	}
-	if (event.request.method !== 'PATCH') return fail(405, 'Use PATCH or DELETE on a step.');
-	const body = await readJson(event.request);
-	if ('error' in body) return fail(400, body.error);
-	const picked = pickFields(body.value, SLICE_FIELDS, 'update');
-	if ('error' in picked) return fail(400, picked.error);
-	const { data, error } = await from('milestone_slices')
-		.update(picked.value)
-		.eq('id', sliceId)
-		.eq('milestone_id', milestoneId)
-		.select('*')
-		.maybeSingle();
-	if (error) return fail(400, dbMessage(error));
-	if (!data) return fail(404, 'That step is not on this milestone.');
-	await recordActivity(ctx, 'API updated a milestone step', { milestone_id: milestoneId });
-	return reply({ data });
-}
-
-export async function handleAi(event: RequestEvent): Promise<Response> {
-	const ctx = await authenticate(event);
-	if (ctx instanceof Response) return ctx;
-
-	if (event.request.method === 'GET') {
-		const plan = await allowance(getServiceClient(), ctx.ownerId);
-		const { data: chats } = await from('ai_chats')
-			.select('id, title, updated_at')
-			.eq('project_id', ctx.project.id)
-			.eq('user_id', ctx.ownerId)
-			.order('updated_at', { ascending: false })
-			.limit(20);
-		const requested = event.url.searchParams.get('chat');
-		let messages: unknown[] = [];
-		if (requested && isUuid(requested)) {
-			const owns = (chats ?? []).some((chat) => chat.id === requested);
-			if (!owns) return fail(404, 'That chat is not in this project.');
-			const { data } = await from('ai_messages')
-				.select('id, role, content, created_at')
-				.eq('chat_id', requested)
-				.order('created_at')
-				.limit(200);
-			messages = data ?? [];
-		}
-		return reply({
-			configured: Boolean(ANTHROPIC_API_KEY),
-			premium: plan.premium,
-			used: plan.used,
-			remaining: plan.remaining,
-			chats: chats ?? [],
-			messages
-		});
-	}
-
-	if (event.request.method !== 'POST') return fail(405, 'Use GET or POST on /api/v1/ai.');
-	const body = await readJson(event.request);
-	if ('error' in body) return fail(400, body.error);
-	const message = typeof body.value.message === 'string' ? body.value.message.trim() : '';
-	if (!message) return fail(400, 'message is required.');
-	if (message.length > 4000) return fail(400, 'Keep a message to 4,000 characters or fewer.');
-
-	const plan = await allowance(getServiceClient(), ctx.ownerId);
-	if (!plan.ready) return fail(503, 'MintAI storage is not ready yet.');
-	if (!plan.premium) return fail(402, 'MintAI is part of Premium. It is $5 a month.');
-	if (!ANTHROPIC_API_KEY) return fail(503, 'MintAI is not configured yet.');
-
-	const spent = await consumeAiRequest(getServiceClient(), ctx.ownerId);
-	if ('error' in spent) return fail(402, spent.error);
-
-	const chatIdRaw = typeof body.value.chatId === 'string' ? body.value.chatId : '';
-	const startNew = body.value.newChat === true || !isUuid(chatIdRaw);
-	let chatId = isUuid(chatIdRaw) ? chatIdRaw : '';
-
-	if (!startNew) {
-		const { data: existing } = await from('ai_chats')
-			.select('id')
-			.eq('id', chatId)
-			.eq('project_id', ctx.project.id)
-			.eq('user_id', ctx.ownerId)
-			.maybeSingle();
-		if (!existing) {
-			await refundAiRequest(ctx.ownerId);
-			return fail(404, 'That chat is not in this project.');
-		}
-	} else {
-		const { data, error } = await from('ai_chats')
-			.insert({
-				project_id: ctx.project.id,
-				user_id: ctx.ownerId,
-				title: message.slice(0, 80)
-			})
-			.select('id')
-			.single();
-		if (error || !data) {
-			await refundAiRequest(ctx.ownerId);
-			return fail(500, 'Could not save the chat.');
-		}
-		chatId = String(data.id);
-	}
-
-	const { data: previous } = await from('ai_messages')
-		.select('role, content')
-		.eq('chat_id', chatId)
-		.order('created_at')
-		.limit(200);
-	const history: ChatTurn[] = ((previous ?? []) as { role: string; content: string }[])
-		.filter((turn) => turn.role === 'user' || turn.role === 'assistant')
-		.slice(-24)
-		.map((turn) => ({ role: turn.role as 'user' | 'assistant', content: turn.content }));
-
-	const result = await runMintAi({
-		context: ctx.mint,
-		history,
-		memory: 'This message arrived through the project API key.',
-		message
-	});
-	if ('error' in result) {
-		await refundAiRequest(ctx.ownerId);
-		return fail(502, result.error);
-	}
-
-	const replyText = result.text.slice(0, 20000);
-	const { error: saveError } = await from('ai_messages').insert([
-		{ chat_id: chatId, role: 'user', content: message },
-		{ chat_id: chatId, role: 'assistant', content: replyText }
-	]);
-	if (saveError) console.error('api MintAI history save failed:', saveError.message);
-	await from('ai_chats').update({ updated_at: new Date().toISOString() }).eq('id', chatId);
-
-	return reply({ chatId, reply: replyText, remaining: spent.remaining });
 }

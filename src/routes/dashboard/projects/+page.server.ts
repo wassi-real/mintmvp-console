@@ -55,18 +55,9 @@ export const actions: Actions = {
 			.single();
 		if (error) return fail(400, { message: dbMessage(error, 'project') });
 
-		// Every project starts with a health record and the three usual environments.
+		// Every project starts with a health record for monitoring.
 		const setup = await Promise.all([
 			context.supabase.from('project_health').insert({ project_id: project.id }),
-			context.supabase.from('project_environments').insert(
-				(['development', 'staging', 'production'] as const).map((kind) => ({
-					project_id: project.id,
-					kind,
-					url: String(
-						(kind === 'staging' ? result.values.staging_url : kind === 'production' ? result.values.production_url : '') ?? ''
-					)
-				}))
-			),
 			context.supabase.from('activity_log').insert({
 				project_id: project.id,
 				action: `Project created: ${project.name}`,

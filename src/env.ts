@@ -44,10 +44,6 @@ export const variables = defineEnvVars({
 			'Optional. Set to "true" on self-hosted installs to let uptime checks reach private network addresses.',
 		schema: (value) => value?.trim().toLowerCase() === 'true'
 	},
-	ANTHROPIC_API_KEY: {
-		description: 'Optional until MintAI is used. Claude API key. Server only. Never expose it to the browser.',
-		schema: optional
-	},
 	STRIPE_SECRET_KEY: {
 		description: 'Optional until billing is used. Stripe secret key. Test mode is fine. Server only.',
 		schema: optional

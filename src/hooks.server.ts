@@ -87,6 +87,9 @@ const guard: Handle = async ({ event, resolve }) => {
 	}
 
 	const response = await withOrigin(event.url.origin, () => resolve(event));
+	for (const [name, value] of Object.entries(event.locals.apiHeaders ?? {})) {
+		if (!response.headers.has(name)) response.headers.set(name, value);
+	}
 	response.headers.set('x-frame-options', 'DENY');
 	response.headers.set('x-content-type-options', 'nosniff');
 	response.headers.set('referrer-policy', 'strict-origin-when-cross-origin');

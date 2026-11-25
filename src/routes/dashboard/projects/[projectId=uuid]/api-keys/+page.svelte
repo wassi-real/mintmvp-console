@@ -4,12 +4,13 @@
 	import KeyRound from '@lucide/svelte/icons/key-round';
 	import Plus from '@lucide/svelte/icons/plus';
 	import Trash from '@lucide/svelte/icons/trash';
+	import { agentPrompt } from '#lib/agent-prompt.ts';
 	import ConfirmDialog from '#lib/components/ConfirmDialog.svelte';
 	import Dialog from '#lib/components/Dialog.svelte';
-	import EmptyState from '#lib/components/EmptyState.svelte';
 	import Form from '#lib/components/Form.svelte';
 	import PageHeader from '#lib/components/PageHeader.svelte';
 	import Time from '#lib/components/Time.svelte';
+	import { formatLimit } from '#lib/plans.ts';
 	import { toasts } from '#lib/toast.svelte.ts';
 	import type { PageProps } from './$types';
 
@@ -17,7 +18,7 @@
 
 	let creating = $state(false);
 	let revealed = $state('');
-	let copied = $state(false);
+	let copied = $state<'key' | 'prompt' | ''>('');
 	let revoking = $state<{ id: string; name: string } | null>(null);
 	let revokeOpen = $state(false);
 
@@ -27,45 +28,64 @@
 		if (key) {
 			revealed = key;
 			creating = false;
-			copied = false;
+			copied = '';
 		}
 	});
 
-	async function copy() {
+	const prompt = $derived(
+		agentPrompt({ project: data.project.name, apiBase: data.apiBase, docsUrl: data.docsUrl, key: revealed })
+	);
+	const writesLeft = $derived(Math.max(data.limits.apiWritesPerMonth - data.usage.writes, 0));
+
+	async function copy(what: 'key' | 'prompt') {
 		try {
-			await navigator.clipboard.writeText(revealed);
-			copied = true;
-			toasts.show('Key copied.');
+			await navigator.clipboard.writeText(what === 'key' ? revealed : prompt);
+			copied = what;
+			toasts.show(what === 'key' ? 'Key copied.' : 'Prompt copied. Paste it into your agent.');
 		} catch {
-			toasts.show('Could not copy. Select the key and copy it by hand.', 'bad');
+			toasts.show('Could not copy. Select the text and copy it by hand.', 'bad');
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>API keys · {data.project.name}</title>
+	<title>Connect agent · {data.project.name}</title>
 </svelte:head>
 
 <PageHeader
-	title="API keys"
-	description="A key can read and change this project only, including MintAI. It is shown in full once, when you create it."
+	title="Connect agent"
+	description="Give Claude Code, Cursor, Codex or any agent a key. It reads the approved plans, claims work, and posts its checks here."
 >
 	<button type="button" class="btn btn-primary" onclick={() => (creating = true)}>
-		<Plus size={20} /> New API key
+		<Plus size={20} /> New key
 	</button>
 </PageHeader>
 
-<p class="-mt-4 mb-8 text-muted">
-	The call shapes, fields and MintAI endpoint are in the <a class="link" href="/docs">API docs</a>.
-</p>
+<ol class="mb-10 grid gap-4 md:grid-cols-3">
+	<li class="tile p-5">
+		<p class="eyebrow">Step 1</p>
+		<p class="mt-1 font-semibold">Create a key</p>
+		<p class="mt-1 text-muted">One per agent or machine, so you can revoke one without stopping the rest.</p>
+	</li>
+	<li class="tile p-5">
+		<p class="eyebrow">Step 2</p>
+		<p class="mt-1 font-semibold">Paste the prompt</p>
+		<p class="mt-1 text-muted">Copy it below into your agent's rules or first message. The key is filled in for you.</p>
+	</li>
+	<li class="tile p-5">
+		<p class="eyebrow">Step 3</p>
+		<p class="mt-1 font-semibold">Approve its plans</p>
+		<p class="mt-1 text-muted">You decide on the Today page. The agent does everything else.</p>
+	</li>
+</ol>
 
 {#if revealed}
 	<section class="notice notice-ok mb-8">
 		<p class="font-semibold">Copy your new key now. It will not be shown again.</p>
 		<div class="mt-3 flex flex-wrap gap-3">
 			<code class="mono min-w-0 flex-1 rounded-block bg-bg px-4 py-3 break-all select-all">{revealed}</code>
-			<button type="button" class="btn" onclick={copy}>
-				{#if copied}<Check size={18} /> Copied{:else}<Copy size={18} /> Copy{/if}
+			<button type="button" class="btn" onclick={() => copy('key')}>
+				{#if copied === 'key'}<Check size={18} /> Copied{:else}<Copy size={18} /> Copy key{/if}
 			</button>
 		</div>
 		<button type="button" class="btn btn-ghost btn-sm mt-3 -ml-2" onclick={() => (revealed = '')}>
@@ -74,12 +94,45 @@
 	</section>
 {/if}
 
-{#if data.keys.length === 0}
-	<EmptyState title="No API keys" message="Create a key when a tool or agent needs access to this project.">
-		<button type="button" class="btn btn-primary" onclick={() => (creating = true)}>
-			<Plus size={20} /> New API key
+<section class="panel mb-10">
+	<div class="panel-header flex flex-wrap items-center justify-between gap-3">
+		<h2 class="panel-title">Agent prompt</h2>
+		<button type="button" class="btn btn-sm {revealed ? 'btn-primary' : ''}" onclick={() => copy('prompt')}>
+			{#if copied === 'prompt'}<Check size={16} /> Copied{:else}<Copy size={16} /> Copy prompt{/if}
 		</button>
-	</EmptyState>
+	</div>
+	<pre class="panel-body mono max-h-96 overflow-auto text-[0.85rem] leading-relaxed whitespace-pre-wrap">{prompt}</pre>
+	<p class="px-6 pb-5 text-[0.9rem] text-muted">
+		Every endpoint, field and error is in the <a class="link" href="/docs">API docs</a>.
+	</p>
+</section>
+
+<section class="mb-10 grid gap-4 sm:grid-cols-3">
+	<div class="tile p-5">
+		<p class="eyebrow">Per key</p>
+		<p class="mt-1 text-2xl font-bold tabular-nums">{data.limits.apiPerMinute}</p>
+		<p class="text-muted">requests a minute</p>
+	</div>
+	<div class="tile p-5">
+		<p class="eyebrow">Writes this month</p>
+		<p class="mt-1 text-2xl font-bold tabular-nums">
+			{data.usage.writes.toLocaleString('en-US')}
+			<span class="text-base font-normal text-muted">of {formatLimit(data.limits.apiWritesPerMonth)}</span>
+		</p>
+		<p class="text-muted">{writesLeft.toLocaleString('en-US')} left. Reads are not capped.</p>
+	</div>
+	<div class="tile p-5">
+		<p class="eyebrow">Plan</p>
+		<p class="mt-1 text-2xl font-bold">{data.limits.name}</p>
+		<p class="text-muted">
+			Limits follow the workspace owner's plan. <a class="link" href="/dashboard/billing">See plans</a>
+		</p>
+	</div>
+</section>
+
+<h2 class="mb-4 text-xl">Keys</h2>
+{#if data.keys.length === 0}
+	<p class="tile p-5 text-muted">No keys yet. Create one to connect your first agent.</p>
 {:else}
 	<div class="list">
 		{#each data.keys as key (key.id)}
@@ -110,7 +163,7 @@
 	</div>
 {/if}
 
-<Dialog bind:open={creating} title="New API key">
+<Dialog bind:open={creating} title="New agent key">
 	<Form action="?/create" reset={false}>
 		{#snippet children({ pending, errors })}
 			<label class="label" for="key-name">Name</label>
@@ -121,11 +174,11 @@
 				required
 				minlength="2"
 				maxlength="80"
-				placeholder="For example: Report bot"
+				placeholder="For example: Claude Code on my laptop"
 				aria-invalid={errors.name ? 'true' : undefined}
 			/>
 			{#if errors.name}<p class="field-error">{errors.name}</p>{/if}
-			<p class="hint">A name so you can tell later which tool uses this key.</p>
+			<p class="hint">The key can read and change this project only. Agents show up under this name unless they send X-Agent-Name.</p>
 			<div class="mt-8 flex flex-wrap justify-end gap-3">
 				<button type="button" class="btn" onclick={() => (creating = false)}>Cancel</button>
 				<button type="submit" class="btn btn-primary" disabled={pending}>
@@ -138,8 +191,8 @@
 
 <ConfirmDialog
 	bind:open={revokeOpen}
-	title="Revoke this API key?"
-	message={`“${revoking?.name ?? 'This key'}” will stop working immediately. Anything using it will lose access.`}
+	title="Revoke this key?"
+	message={`“${revoking?.name ?? 'This key'}” will stop working immediately. Any agent using it will lose access.`}
 	values={{ id: revoking?.id ?? '' }}
 	confirmLabel="Revoke key"
 />

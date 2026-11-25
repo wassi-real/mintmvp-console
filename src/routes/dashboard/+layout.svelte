@@ -47,7 +47,7 @@
 	}
 
 	const links = $derived([
-		{ href: '/dashboard', label: 'Overview', icon: House, current: path === '/dashboard' },
+		{ href: '/dashboard', label: 'Today', icon: House, current: path === '/dashboard' },
 		{
 			href: '/dashboard/projects',
 			label: 'Projects',
@@ -69,7 +69,7 @@
 		},
 		{
 			href: '/dashboard/billing',
-			label: 'Premium',
+			label: 'Plan',
 			icon: CreditCard,
 			current: path.startsWith('/dashboard/billing')
 		},

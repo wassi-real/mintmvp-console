@@ -1,13 +1,13 @@
 <script lang="ts">
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
+	import Bot from '@lucide/svelte/icons/bot';
 	import Check from '@lucide/svelte/icons/check';
 	import ChevronDown from '@lucide/svelte/icons/chevron-down';
-	import GitBranch from '@lucide/svelte/icons/git-branch';
-	import HeartPulse from '@lucide/svelte/icons/heart-pulse';
-	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
+	import ClipboardCheck from '@lucide/svelte/icons/clipboard-check';
+	import ListChecks from '@lucide/svelte/icons/list-checks';
+	import Lock from '@lucide/svelte/icons/lock';
 	import Mail from '@lucide/svelte/icons/mail';
-	import Sparkles from '@lucide/svelte/icons/sparkles';
-	import Users from '@lucide/svelte/icons/users';
+	import { PLANS, formatLimit, type Plan } from '#lib/plans.ts';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -18,60 +18,65 @@
 
 	const features = [
 		{
-			icon: LayoutDashboard,
+			icon: Bot,
 			index: '01',
-			title: 'One project home',
-			text: 'Tasks, milestones, specs, reports and activity sit in the same place.'
+			title: 'Your agent does the work',
+			text: 'Claude Code, Cursor or Codex reads the approved plan, claims it, posts checks and records the release.'
 		},
 		{
-			icon: GitBranch,
+			icon: ClipboardCheck,
 			index: '02',
-			title: 'Delivery in view',
-			text: 'GitHub, builds, deploys and environments, without a second tool.'
+			title: 'You only decide',
+			text: 'Approve a plan, say yes or later to extra scope, accept the result. Nothing else asks for you.'
 		},
 		{
-			icon: HeartPulse,
+			icon: Lock,
 			index: '03',
-			title: 'Ops that stay calm',
-			text: 'Monitoring and incidents, with a count of what is still open.'
+			title: 'No duplicate work',
+			text: 'One claim per piece of work. A second agent is told someone already has it, and by when.'
 		},
 		{
-			icon: Users,
+			icon: ListChecks,
 			index: '04',
-			title: 'Roles that fit',
-			text: 'Owners and developers edit. Clients can look without changing anything.'
+			title: 'Know why it slipped',
+			text: 'Failed checks, deferred scope and repeats after release, each with the build it happened on.'
 		}
 	];
 
-	const free = [
-		'Look through the whole workspace',
-		'2 projects',
-		'Each month, per project: 30 tasks, 3 milestones, 5 reports, 3 specs, 5 incidents',
-		'MintAI stays off'
-	];
-	const premium = [
-		'Unlimited projects, tasks, milestones and incidents',
-		'Each month, per project: 40 reports and 20 specs',
-		'MintAI in every project: create, edit, delete and read',
-		'100 MintAI requests a month, chats saved'
-	];
+	function perks(plan: Plan): string[] {
+		return [
+			plan.projects === null ? 'Unlimited projects' : `${plan.projects} project`,
+			plan.workPerMonth === null ? 'Unlimited work' : `${plan.workPerMonth} new pieces of work per project a month`,
+			`API: ${plan.apiPerMinute} requests a minute per key`,
+			`API: ${formatLimit(plan.apiWritesPerMonth)} writes per project a month. Reads are free.`,
+			plan.price === 0 ? 'Tasks, reports and uptime checks' : 'Higher limits on tasks and reports'
+		];
+	}
 
 	const faqs = [
 		{
-			q: 'What do I get for $5?',
-			a: 'Premium is $5 a month for your account. It lifts the tight free limits and turns MintAI on.'
+			q: 'Who is this for?',
+			a: 'People who build with AI coding agents. You plan and decide. Your agents build, test and ship, and Mint keeps the record so nothing gets lost between sessions.'
 		},
 		{
-			q: 'How does MintAI work?',
-			a: 'It lives inside one project at a time. It can read and change that project’s tasks, specs, reports, milestones and incidents. Chats are saved. You get 100 requests a month.'
+			q: 'Which agents work with it?',
+			a: 'Any agent that can make HTTP requests: Claude Code, Cursor, Codex and others. You create a key, paste one prompt, and the agent uses the API from then on.'
+		},
+		{
+			q: 'What does the agent do, and what do I do?',
+			a: 'The agent proposes plans, claims work, posts notes and checks, proposes extra scope and records releases. You approve plans, decide scope changes and accept results. Those steps stay with a person.'
+		},
+		{
+			q: 'What do I get for $5?',
+			a: `Mint is $5 a month. It removes the project and work limits and gives your agents ${PLANS.mint.apiPerMinute} requests a minute and ${formatLimit(PLANS.mint.apiWritesPerMonth)} writes a month per project.`
 		},
 		{
 			q: 'Can I start without a card?',
-			a: 'Yes. The free plan needs no payment. Subscribe only when you want Premium.'
+			a: 'Yes. The free plan needs no payment. Upgrade only when one project is not enough.'
 		},
 		{
 			q: 'Can I cancel?',
-			a: 'Yes, any time, from Billing in the dashboard. Stripe handles the subscription.'
+			a: 'Yes, any time, from Plan in the dashboard. Stripe handles the subscription.'
 		}
 	];
 
@@ -115,7 +120,7 @@
 	<title>MintMVP Console</title>
 	<meta
 		name="description"
-		content="One workspace for projects, delivery and MintAI. Free to start. Premium is $5 a month."
+		content="Your AI agents build. You decide. Mint Console keeps the approved plan, the claims, the checks and the releases. Free to start. $5 a month for more."
 	/>
 </svelte:head>
 
@@ -128,7 +133,7 @@
 			</a>
 			<nav aria-label="Page">
 				<a href="#features">Features</a>
-				<a href="#ai">MintAI</a>
+				<a href="#agents">Agents</a>
 				<a href="#pricing">Pricing</a>
 				<a href="#faq">FAQ</a>
 				<a href="#contact">Contact</a>
@@ -142,10 +147,11 @@
 	<main>
 		<section id="top" class="hero">
 			<div class="hero-copy">
-				<p class="eyebrow">Project console</p>
-				<h1>Ship the project from one screen.</h1>
+				<p class="eyebrow">For people who build with AI agents</p>
+				<h1>Your agents build. You decide.</h1>
 				<p class="lead">
-					Tasks, reports, deploys and a project assistant. Short to learn. Ready when you are.
+					Mint keeps the approved plan, who is on it, what failed and what shipped. Your agent runs the loop
+					through the API. You get three lists: what needs you, what is moving, and why anything slipped.
 				</p>
 				<div class="hero-actions">
 					<a href={startHref} class="btn btn-primary btn-lg">
@@ -166,13 +172,13 @@
 					</aside>
 					<div class="mock-main">
 						<div class="mock-top">
-							<strong>Overview</strong>
+							<strong>Today</strong>
 							<span class="pill">On track</span>
 						</div>
 						<div class="stats">
-							<div><b>12</b><small>Open tasks</small></div>
-							<div><b>3</b><small>Deploys</small></div>
-							<div><b>0</b><small>Incidents</small></div>
+							<div><b>2</b><small>Need you</small></div>
+							<div><b>5</b><small>Moving</small></div>
+							<div><b>1</b><small>Slipped</small></div>
 						</div>
 						<div class="rows">
 							<span></span>
@@ -182,8 +188,8 @@
 					</div>
 				</div>
 				<div class="float-card">
-					<Sparkles size={16} />
-					<span>MintAI updated the milestone</span>
+					<Bot size={16} />
+					<span>claude-code passed the check on v1.4.0</span>
 				</div>
 			</div>
 		</section>
@@ -191,7 +197,7 @@
 		<section id="features" class="block reveal" use:reveal>
 			<div class="block-head">
 				<p class="eyebrow">Features</p>
-				<h2>The work, not another dashboard.</h2>
+				<h2>Less to manage. More shipped.</h2>
 			</div>
 			<div class="cards stagger">
 				{#each features as feature (feature.title)}
@@ -207,26 +213,27 @@
 			</div>
 		</section>
 
-		<section id="ai" class="block reveal" use:reveal>
+		<section id="agents" class="block reveal" use:reveal>
 			<div class="ai panel">
 				<div>
-					<p class="eyebrow">MintAI</p>
-					<h2>An assistant that stays inside the project.</h2>
+					<p class="eyebrow">Agents</p>
+					<h2>One prompt, and your agent runs the loop.</h2>
 					<p class="lead">
-						Ask it to add a task, rewrite a report, or check what is blocked. It only touches the
-						project you have open. Premium required. 100 requests a month.
+						Create a key, paste the prompt into your agent, and it works from the plan you approved. It
+						claims the work so nobody doubles up, and reports back with real builds.
 					</p>
 					<ul class="ticks">
-						<li><Check size={18} /> Create, edit, delete and read</li>
-						<li><Check size={18} /> Chats are saved</li>
-						<li><Check size={18} /> Locked on the free plan</li>
+						<li><Check size={18} /> Claims stop duplicate work</li>
+						<li><Check size={18} /> Every check names the build it ran on</li>
+						<li><Check size={18} /> Extra scope waits for your yes</li>
 					</ul>
+					<a href="/docs" class="btn mt-6">Read the API docs <ArrowRight size={18} /></a>
 				</div>
 				<div class="chat" aria-hidden="true">
-					<p class="bubble me">Add a task for the staging check.</p>
-					<p class="bubble">Done. “Staging check” is in To do, due Friday.</p>
-					<p class="bubble me">Move it to In progress.</p>
-					<p class="bubble">Moved. One open task left on that milestone.</p>
+					<p class="bubble me">Pick up the next approved work.</p>
+					<p class="bubble">Claimed “Password reset by email” for 4 hours.</p>
+					<p class="bubble">Check failed on v1.4.0-rc1: the link expires too early. Fixing it.</p>
+					<p class="bubble">Check passed on v1.4.0-rc2. It is waiting for you to accept.</p>
 				</div>
 			</div>
 		</section>
@@ -234,30 +241,30 @@
 		<section id="pricing" class="block reveal" use:reveal>
 			<div class="block-head">
 				<p class="eyebrow">Pricing</p>
-				<h2>Free to look. $5 to go further.</h2>
+				<h2>One project free. $5 for the rest.</h2>
 			</div>
 			<div class="prices">
 				<article class="panel price">
-					<p class="eyebrow">Free</p>
+					<p class="eyebrow">{PLANS.free.name}</p>
 					<p class="amount">$0</p>
 					<ul>
-						{#each free as item (item)}
+						{#each perks(PLANS.free) as item (item)}
 							<li><Check size={18} /> {item}</li>
 						{/each}
 					</ul>
 					<a href={startHref} class="btn btn-block">Start free</a>
 				</article>
 				<article class="panel price featured">
-					<p class="mark">Recommended</p>
-					<p class="eyebrow">Premium</p>
-					<p class="amount">$5<span>/ month</span></p>
+					<p class="mark">For more than one project</p>
+					<p class="eyebrow">{PLANS.mint.name}</p>
+					<p class="amount">${PLANS.mint.price}<span>/ month</span></p>
 					<ul>
-						{#each premium as item (item)}
+						{#each perks(PLANS.mint) as item (item)}
 							<li><Check size={18} /> {item}</li>
 						{/each}
 					</ul>
 					<a href={data.signedIn ? '/dashboard/billing' : '/auth?mode=signup'} class="btn btn-primary btn-block">
-						Get Premium
+						Get Mint
 					</a>
 				</article>
 			</div>

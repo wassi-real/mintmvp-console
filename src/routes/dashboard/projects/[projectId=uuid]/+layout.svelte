@@ -1,28 +1,16 @@
 <script lang="ts">
 	import Activity from '@lucide/svelte/icons/activity';
-	import BookOpen from '@lucide/svelte/icons/book-open';
 	import ArrowLeft from '@lucide/svelte/icons/arrow-left';
-	import CirclePlay from '@lucide/svelte/icons/circle-play';
-	import FileText from '@lucide/svelte/icons/file-text';
-	import Flag from '@lucide/svelte/icons/flag';
-	import FlaskConical from '@lucide/svelte/icons/flask-conical';
-	import GitBranch from '@lucide/svelte/icons/git-branch';
+	import Bot from '@lucide/svelte/icons/bot';
 	import HeartPulse from '@lucide/svelte/icons/heart-pulse';
-	import KeyRound from '@lucide/svelte/icons/key-round';
-	import LayoutDashboard from '@lucide/svelte/icons/layout-dashboard';
 	import ListTodo from '@lucide/svelte/icons/list-todo';
 	import NotebookText from '@lucide/svelte/icons/notebook-text';
-	import Plug from '@lucide/svelte/icons/plug';
-	import Rocket from '@lucide/svelte/icons/rocket';
-	import Server from '@lucide/svelte/icons/server';
 	import Settings from '@lucide/svelte/icons/settings';
 	import SquareKanban from '@lucide/svelte/icons/square-kanban';
-	import TriangleAlert from '@lucide/svelte/icons/triangle-exclamation-point';
-	import Wallet from '@lucide/svelte/icons/wallet';
+	import Sun from '@lucide/svelte/icons/sun';
 	import Workflow from '@lucide/svelte/icons/workflow';
 	import { page } from '$app/state';
 	import Badge from '#lib/components/Badge.svelte';
-	import MintAi from '#lib/components/MintAi.svelte';
 	import { projectStatus } from '#lib/constants.ts';
 	import type { LayoutProps } from './$types';
 
@@ -54,58 +42,22 @@
 	const groups = $derived(
 		([
 			{
-				title: 'Plan',
+				title: 'Work',
 				links: [
-					{ href: base, label: 'Overview', icon: LayoutDashboard, exact: true },
-					{ href: `${base}/tasks`, label: 'Tasks', icon: ListTodo, count: data.counts.tasks, not: 'board' },
+					{ href: base, label: 'Today', icon: Sun, exact: true, count: data.counts.needsYou, alert: true },
+					{ href: `${base}/work`, label: 'Work', icon: Workflow, count: data.counts.moving },
+					{ href: `${base}/tasks`, label: 'Tasks', icon: ListTodo, not: 'board' },
 					{ href: `${base}/tasks?view=board`, label: 'Board', icon: SquareKanban, only: 'board' },
-					{ href: `${base}/milestones`, label: 'Milestones', icon: Flag },
-					{ href: `${base}/pipeline`, label: 'Pipeline', icon: Workflow },
-					{ href: `${base}/specs`, label: 'Specs', icon: FileText }
-				]
-			},
-			{
-				title: 'Knowledge',
-				links: [
 					{ href: `${base}/reports`, label: 'Reports', icon: NotebookText },
-					{ href: `${base}/activity`, label: 'Activity', icon: Activity },
-					{ href: '/docs', label: 'Docs', icon: BookOpen }
+					{ href: `${base}/activity`, label: 'History', icon: Activity },
+					{ href: `${base}/monitoring`, label: 'Monitoring', icon: HeartPulse }
 				]
-			},
-			{
-				title: 'Engineering',
-				links: [
-					{ href: `${base}/github`, label: 'Code (GitHub)', icon: GitBranch },
-					{ href: `${base}/tests`, label: 'Tests', icon: FlaskConical },
-					{ href: `${base}/ci`, label: 'Builds (CI/CD)', icon: CirclePlay },
-					{ href: `${base}/deploys`, label: 'Deployments', icon: Rocket },
-					{ href: `${base}/environments`, label: 'Environments', icon: Server }
-				]
-			},
-			{
-				title: 'Operations',
-				links: [
-					{ href: `${base}/monitoring`, label: 'Monitoring', icon: HeartPulse },
-					{
-						href: `${base}/incidents`,
-						label: 'Incidents',
-						icon: TriangleAlert,
-						count: data.counts.incidents,
-						alert: true
-					}
-				]
-			},
-			{
-				title: 'Business',
-				staff: true,
-				links: [{ href: `${base}/finance`, label: 'Finance', icon: Wallet }]
 			},
 			{
 				title: 'Setup',
 				staff: true,
 				links: [
-					{ href: `${base}/api-keys`, label: 'API keys', icon: KeyRound },
-					{ href: `${base}/integrations`, label: 'Integrations', icon: Plug },
+					{ href: `${base}/api-keys`, label: 'Connect agent', icon: Bot },
 					{ href: `${base}/settings`, label: 'Project settings', icon: Settings }
 				]
 			}
@@ -186,4 +138,3 @@
 		</div>
 	{/key}
 </main>
-<MintAi projectId={data.project.id} projectName={data.project.name} />

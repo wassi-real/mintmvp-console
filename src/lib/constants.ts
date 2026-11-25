@@ -210,7 +210,47 @@ export const LOG_SEVERITIES: readonly Option[] = [
 	{ value: 'info', label: 'Info', tone: 'neutral' }
 ];
 
+export const WORK_STATES: readonly Option[] = [
+	{ value: 'idea', label: 'Waiting for approval', tone: 'warn' },
+	{ value: 'approved', label: 'Approved', tone: 'info' },
+	{ value: 'in_progress', label: 'In progress', tone: 'info' },
+	{ value: 'check_failed', label: 'Check failed', tone: 'bad' },
+	{ value: 'qa_passed', label: 'Passed, waiting for you', tone: 'warn' },
+	{ value: 'accepted', label: 'Accepted', tone: 'ok' },
+	{ value: 'released', label: 'Released', tone: 'ok' },
+	{ value: 'dropped', label: 'Dropped', tone: 'neutral' }
+];
+
+export const DECISION_STATUSES: readonly Option[] = [
+	{ value: 'pending', label: 'Waiting for you', tone: 'warn' },
+	{ value: 'approved', label: 'Approved', tone: 'ok' },
+	{ value: 'deferred', label: 'Deferred', tone: 'neutral' },
+	{ value: 'rejected', label: 'Rejected', tone: 'bad' }
+];
+
+export const WORK_EVENTS: readonly Option[] = [
+	{ value: 'created', label: 'Created', tone: 'neutral' },
+	{ value: 'edited', label: 'Plan edited', tone: 'neutral' },
+	{ value: 'approved', label: 'Approved', tone: 'info' },
+	{ value: 'claimed', label: 'Claimed', tone: 'info' },
+	{ value: 'handed_off', label: 'Handed off', tone: 'neutral' },
+	{ value: 'note', label: 'Note', tone: 'neutral' },
+	{ value: 'check_failed', label: 'Check failed', tone: 'bad' },
+	{ value: 'check_passed', label: 'Check passed', tone: 'ok' },
+	{ value: 'scope_proposed', label: 'Scope change proposed', tone: 'warn' },
+	{ value: 'scope_approved', label: 'Scope change approved', tone: 'ok' },
+	{ value: 'scope_deferred', label: 'Scope change deferred', tone: 'neutral' },
+	{ value: 'scope_rejected', label: 'Scope change rejected', tone: 'bad' },
+	{ value: 'accepted', label: 'Accepted', tone: 'ok' },
+	{ value: 'released', label: 'Released', tone: 'ok' },
+	{ value: 'reopened', label: 'Seen again after release', tone: 'bad' },
+	{ value: 'dropped', label: 'Dropped', tone: 'neutral' }
+];
+
 export const projectStatus = lookup(PROJECT_STATUSES);
+export const workState = lookup(WORK_STATES);
+export const decisionStatus = lookup(DECISION_STATUSES);
+export const workEvent = lookup(WORK_EVENTS);
 export const priority = lookup(PRIORITIES);
 export const taskStatus = lookup(TASK_STATUSES);
 export const specStatus = lookup(SPEC_STATUSES);

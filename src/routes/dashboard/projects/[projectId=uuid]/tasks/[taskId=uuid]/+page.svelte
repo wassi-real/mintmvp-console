@@ -247,7 +247,7 @@
 				{#if data.specTitle}
 					<div>
 						<dt class="eyebrow">Related spec</dt>
-						<dd class="mt-2"><a class="link" href="/dashboard/projects/{data.project.id}/specs">{data.specTitle}</a></dd>
+						<dd class="mt-2">{data.specTitle}</dd>
 					</div>
 				{/if}
 				{#if task.branch_name}

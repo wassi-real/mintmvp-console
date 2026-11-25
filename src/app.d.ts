@@ -12,6 +12,8 @@ declare global {
 			/** Set by the server hook on /dashboard and /onboarding. */
 			profile: Row<'users'> | null;
 			theme: 'dark' | 'light';
+			/** Rate limit headers for public API responses, set when an API key is checked. */
+			apiHeaders?: Record<string, string>;
 		}
 		// interface Error {}
 		// interface PageData {}
